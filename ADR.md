@@ -1059,3 +1059,107 @@ core:network → (no internal dependencies)
 - **Architecture:** Clean, maintainable, and properly modularized
 
 This debugging session represents a complete resolution of app-breaking issues and establishes a solid foundation for future development and feature additions.
+
+---
+
+## ADR-013: Backend Success vs UI Failure Analysis (Critical State Assessment)
+**Date:** 2025-01-07  
+**Status:** Critical - UI Broken Despite Backend Success  
+**Team:** All Teams - Urgent Integration Issue
+
+### Context & Current State
+Following the successful resolution of all UPnP and SOAP communication issues in ADR-012, the Fart-Looper application has achieved a paradoxical state: **perfect backend functionality with completely broken user interface**.
+
+### Backend Achievement Status ✅
+The core networking and device control functionality is now **fully operational**:
+
+#### UPnP & SOAP Implementation Success
+- **SSDP Discovery**: Successfully finding Sonos devices at 192.168.4.152:1400
+- **Device Communication**: Proper handling of HTTP 403 responses (devices reachable despite security responses)
+- **SOAP Command Execution**: Manual implementation sending correctly formatted SetAVTransportURI + Play sequence
+- **Audio Streaming**: HTTP server successfully serving media files to network devices
+- **Control URL Mapping**: Device-specific control endpoint determination working correctly
+
+#### Technical Implementation Quality
+- **Protocol Compliance**: Manual SOAP implementation follows UPnP specifications exactly
+- **Error Handling**: Robust device reachability logic handling security responses appropriately
+- **Architecture**: Clean module separation with `core:blast` properly isolated from app concerns
+- **Service Management**: BlastService operating correctly with proper lifecycle management
+- **Dependency Injection**: Hilt working correctly throughout backend modules
+
+### Critical Issue: Complete UI Failure ❌
+
+#### Symptoms Analysis
+The user interface has become completely non-functional, preventing access to the working backend:
+- App likely crashes on startup or fails to render UI components
+- Navigation system probably broken preventing basic user workflows
+- Play button inaccessible, making the working UPnP functionality unreachable
+- No way for users to trigger the functional audio blasting capabilities
+
+#### Root Cause Investigation Required
+**Primary Suspects:**
+1. **Circular Dependency Creation**: Recent module restructuring may have created UI-level circular dependencies
+2. **ViewModel Injection Failures**: Hilt dependency injection failing in UI layer despite working in backend
+3. **Navigation Route Breakage**: Navigation integration broken during architectural changes
+4. **Compose Compilation Issues**: UI compilation problems from dependency updates
+5. **State Management Disconnection**: StateFlow integration between service and UI broken
+
+### Technical Decision Analysis
+
+#### Decision: Prioritize UI Restoration Over Backend Optimization
+**Rationale:** While the backend functionality represents a significant technical achievement, it provides zero user value if inaccessible through the UI. User experience must take precedence over technical perfection.
+
+**Trade-offs:**
+- **Risk**: Potential regression of hard-won backend stability during UI fixes
+- **Benefit**: Restoration of user access to functional capabilities
+- **Strategy**: Minimal changes to working backend, focused UI debugging only
+
+#### Decision: Systematic UI Debugging Approach
+**Rationale:** The working backend provides a stable foundation. UI issues are likely isolated to specific integration points rather than fundamental architectural problems.
+
+**Investigation Priority:**
+1. **App Startup Debugging**: Identify crash points or rendering failures
+2. **Navigation Route Validation**: Verify ViewModel injection and route registration
+3. **Dependency Graph Analysis**: Ensure UI layer Hilt components properly configured
+4. **State Flow Integration**: Verify reactive updates between BlastService and UI components
+5. **Compose Component Integrity**: Check for compilation issues in UI components
+
+### Implementation Strategy
+
+#### Phase 1: Stabilization (Critical)
+- Restore basic app startup and navigation functionality
+- Ensure play button becomes accessible to users
+- Minimal viable UI to access working backend
+
+#### Phase 2: Integration (High Priority)
+- Repair real-time progress indication during blast operations
+- Restore device discovery and status feedback in UI
+- Re-establish StateFlow integration for live updates
+
+#### Phase 3: Polish (Medium Priority)
+- Motion animations and advanced UI features
+- Performance optimization and visual improvements
+- User experience enhancement
+
+### Risk Assessment
+**HIGH RISK**: Potential backend regression during UI fixes
+**MITIGATION**: Careful change isolation, avoid modifying working `core:blast` and `core:network` modules
+
+**MEDIUM RISK**: Extended downtime of user-facing functionality
+**MITIGATION**: Prioritize minimal viable UI over perfect implementation
+
+### Success Criteria
+1. **Basic UI Functionality**: App starts without crashes, navigation works
+2. **Core Workflow Access**: Users can trigger audio blasting functionality
+3. **Progress Feedback**: Basic indication of blast operation status
+4. **Device Communication**: UI properly reflects backend device discovery results
+
+### Architecture Lessons
+This situation demonstrates the critical importance of:
+1. **Incremental Integration**: UI and backend should be integrated continuously, not at the end
+2. **Test Coverage**: UI tests would have caught integration failures early
+3. **Deployment Strategy**: Backend functionality is meaningless without user access
+4. **Change Isolation**: Architectural changes should be made incrementally with validation
+
+### Next Steps
+**IMMEDIATE PRIORITY**: UI debugging and restoration to enable user access to functional backend capabilities. The technical achievement of working UPnP/SOAP implementation must be made accessible to users through a functional interface.

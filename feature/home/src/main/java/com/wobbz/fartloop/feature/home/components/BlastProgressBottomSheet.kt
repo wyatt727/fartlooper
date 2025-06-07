@@ -47,6 +47,8 @@ fun BlastProgressBottomSheet(
     blastStage: BlastStage,
     metrics: BlastMetrics,
     devices: List<DiscoveredDevice>,
+    onStopClick: () -> Unit = {},
+    onDiscoverClick: () -> Unit = {},
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -115,6 +117,8 @@ fun BlastProgressBottomSheet(
                 // Action buttons
                 BottomSheetActions(
                     blastStage = blastStage,
+                    onStopClick = onStopClick,
+                    onDiscoverClick = onDiscoverClick,
                     onDismiss = onDismiss
                 )
             }
@@ -433,14 +437,29 @@ private fun DeviceStatusRow(device: DiscoveredDevice) {
 @Composable
 private fun BottomSheetActions(
     blastStage: BlastStage,
+    onStopClick: () -> Unit,
+    onDiscoverClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         when (blastStage) {
             BlastStage.COMPLETED -> {
+                OutlinedButton(
+                    onClick = onDiscoverClick,
+                    modifier = Modifier.fillMaxWidth(0.4f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Discover again",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Discover")
+                }
+
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(
@@ -451,12 +470,35 @@ private fun BottomSheetActions(
                 }
             }
             BlastStage.COMPLETING -> {
+                Spacer(modifier = Modifier.width(1.dp)) // Push Close button to right
                 OutlinedButton(onClick = onDismiss) {
                     Text("Close")
                 }
             }
+            BlastStage.HTTP_STARTING, BlastStage.DISCOVERING, BlastStage.BLASTING -> {
+                // During active stages, show stop and minimize controls
+                Button(
+                    onClick = onStopClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    ),
+                    modifier = Modifier.fillMaxWidth(0.4f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Stop blast",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Stop")
+                }
+
+                TextButton(onClick = onDismiss) {
+                    Text("Minimize")
+                }
+            }
             else -> {
-                // During active stages, show minimal controls
+                Spacer(modifier = Modifier.width(1.dp))
                 TextButton(onClick = onDismiss) {
                     Text("Minimize")
                 }
@@ -516,6 +558,8 @@ private fun BlastProgressBottomSheetPreview() {
                     status = DeviceStatus.CONNECTING
                 )
             ),
+            onStopClick = { },
+            onDiscoverClick = { },
             onDismiss = { }
         )
     }

@@ -54,6 +54,8 @@ fun BlastFabMotion(
     devices: List<DiscoveredDevice>,
     isExpanded: Boolean,
     onFabClick: () -> Unit,
+    onStopClick: () -> Unit = {},
+    onDiscoverClick: () -> Unit = {},
     onDismiss: () -> Unit,
     fabSize: Dp = 80.dp,
     modifier: Modifier = Modifier
@@ -186,6 +188,8 @@ fun BlastFabMotion(
                     blastStage = blastStage,
                     metrics = metrics,
                     devices = devices,
+                    onStopClick = onStopClick,
+                    onDiscoverClick = onDiscoverClick,
                     onDismiss = {
                         onDismiss()
                         Timber.d("BlastProgressBottomSheet dismissed, triggering motion collapse")
@@ -270,6 +274,8 @@ fun BlastMotionController(
     metrics: BlastMetrics,
     devices: List<DiscoveredDevice>,
     onStartBlast: () -> Unit,
+    onStopBlast: () -> Unit = {},
+    onDiscoverDevices: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Motion state derived from blast stage
@@ -295,6 +301,18 @@ fun BlastMotionController(
             if (blastStage == BlastStage.IDLE) {
                 onStartBlast()
                 Timber.d("BlastMotionController triggering blast start")
+            }
+        },
+        onStopClick = {
+            if (blastStage != BlastStage.IDLE && blastStage != BlastStage.COMPLETED) {
+                onStopBlast()
+                Timber.d("BlastMotionController triggering blast stop")
+            }
+        },
+        onDiscoverClick = {
+            if (blastStage == BlastStage.IDLE) {
+                onDiscoverDevices()
+                Timber.d("BlastMotionController triggering device discovery")
             }
         },
         onDismiss = {

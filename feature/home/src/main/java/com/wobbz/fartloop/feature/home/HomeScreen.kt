@@ -49,6 +49,8 @@ import timber.log.Timber
 fun HomeScreen(
     uiState: HomeUiState,
     onBlastClick: () -> Unit,
+    onStopClick: () -> Unit = {},
+    onDiscoverClick: () -> Unit = {},
     onDeviceClick: (DiscoveredDevice) -> Unit = {},
     onToggleMetrics: () -> Unit,
     debugLogs: List<LogEntry> = emptyList(),
@@ -75,6 +77,7 @@ fun HomeScreen(
             HomeContent(
                 uiState = uiState,
                 onDeviceClick = onDeviceClick,
+                onDiscoverClick = onDiscoverClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -90,6 +93,8 @@ fun HomeScreen(
             metrics = uiState.metrics,
             devices = uiState.devices,
             onStartBlast = onBlastClick,
+            onStopBlast = onStopClick,
+            onDiscoverDevices = onDiscoverClick,
             modifier = Modifier.align(Alignment.BottomEnd)
         )
 
@@ -121,6 +126,8 @@ fun HomeScreen(
         uiState.errorMessage?.let { error ->
             LaunchedEffect(error) {
                 Timber.e("HomeScreen error: $error")
+                // TODO: Show snackbar with error message
+                // For now, just log the error
             }
         }
     }
@@ -145,17 +152,27 @@ fun HomeScreen(
 private fun HomeContent(
     uiState: HomeUiState,
     onDeviceClick: (DiscoveredDevice) -> Unit,
+    onDiscoverClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     when {
-        // Loading state
-        uiState.isLoading -> {
-            LoadingContent(modifier = modifier)
+        // Loading state or blast starting
+        uiState.isLoading || uiState.blastStage == BlastStage.HTTP_STARTING -> {
+            LoadingContent(
+                message = when (uiState.blastStage) {
+                    BlastStage.HTTP_STARTING -> "Starting HTTP server..."
+                    else -> "Loading..."
+                },
+                modifier = modifier
+            )
         }
 
         // Empty state (no devices found)
         !uiState.hasDevices && !uiState.isBlastActive -> {
-            EmptyDeviceList(modifier = modifier)
+            EmptyDeviceList(
+                onDiscoverClick = onDiscoverClick,
+                modifier = modifier
+            )
         }
 
         // Device list
@@ -163,6 +180,7 @@ private fun HomeContent(
             DeviceList(
                 devices = uiState.devices,
                 onDeviceClick = onDeviceClick,
+                onDiscoverClick = onDiscoverClick,
                 modifier = modifier
             )
         }
@@ -176,6 +194,7 @@ private fun HomeContent(
 private fun DeviceList(
     devices: List<DiscoveredDevice>,
     onDeviceClick: (DiscoveredDevice) -> Unit,
+    onDiscoverClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -183,14 +202,33 @@ private fun DeviceList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        // Section header
+        // Section header with refresh button
         item {
-            Text(
-                text = "Discovered Devices (${devices.size})",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Discovered Devices (${devices.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+
+                IconButton(
+                    onClick = onDiscoverClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh devices",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
 
         // Device chips
@@ -216,7 +254,10 @@ private fun DeviceList(
  * Empty state when no devices are discovered
  */
 @Composable
-private fun EmptyDeviceList(modifier: Modifier = Modifier) {
+private fun EmptyDeviceList(
+    onDiscoverClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -240,11 +281,28 @@ private fun EmptyDeviceList(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Tap BLAST to discover UPnP, Chromecast,\nand other network audio devices",
+            text = "Discover UPnP, Chromecast,\nand other network audio devices",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onDiscoverClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Discover devices",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Discover Devices")
+        }
     }
 }
 
@@ -252,7 +310,10 @@ private fun EmptyDeviceList(modifier: Modifier = Modifier) {
  * Loading state indicator
  */
 @Composable
-private fun LoadingContent(modifier: Modifier = Modifier) {
+private fun LoadingContent(
+    message: String = "Loading...",
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -266,7 +327,7 @@ private fun LoadingContent(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Loading...",
+            text = message,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -322,6 +383,8 @@ private fun HomeScreenWithDevicesPreview() {
                 isMetricsExpanded = false
             ),
             onBlastClick = { },
+            onStopClick = { },
+            onDiscoverClick = { },
             onToggleMetrics = { },
             debugLogs = listOf(
                 LogEntry(
@@ -356,6 +419,8 @@ private fun HomeScreenEmptyPreview() {
                 isMetricsExpanded = false
             ),
             onBlastClick = { },
+            onStopClick = { },
+            onDiscoverClick = { },
             onToggleMetrics = { }
         )
     }
@@ -391,6 +456,8 @@ private fun HomeScreenBlastingPreview() {
                 isMetricsExpanded = true
             ),
             onBlastClick = { },
+            onStopClick = { },
+            onDiscoverClick = { },
             onToggleMetrics = { }
         )
     }

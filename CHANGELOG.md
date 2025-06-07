@@ -1,5 +1,28 @@
 # CHANGELOG.md
 
+## [Unreleased] - Discovery-Only Feature Added 🔍
+
+### Added
+- **Discovery-only mode**: Users can now discover devices without committing to blast audio
+- "Discover Devices" button in empty state for initial device discovery
+- Refresh icon in device list header for re-discovering devices
+- "Discover" button in completed blast bottom sheet for finding new devices
+- Discovery-only service operation with dedicated `ACTION_DISCOVER_ONLY` intent
+
+### Enhanced
+- Multiple entry points for device discovery throughout the UI
+- Improved user experience - no need to blast audio just to see available devices
+- Discovery timeout configurable (default 4 seconds)
+- Proper discovery completion notifications and error handling
+
+### Technical
+- New `BlastService.discoverDevices()` function for discovery-only operations
+- Enhanced broadcast receiver system to handle discovery completion/errors
+- Updated UI components to support discovery actions alongside blast actions
+- Proper service lifecycle management for discovery-only operations
+
+---
+
 ## [1.1.1] - 2025-01-07 - SONOS SUCCESS BUT UI BROKEN 🎯❌
 
 ### 🎉 MAJOR SUCCESS: SONOS FUNCTIONALITY CONFIRMED WORKING

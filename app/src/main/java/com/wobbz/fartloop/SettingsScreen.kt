@@ -52,6 +52,26 @@ fun SettingsScreen(
         }
 
         item {
+            // Audio & Playback Section
+            SettingsSection(
+                title = "Audio & Playback",
+                icon = Icons.Default.VolumeUp,
+                description = "Configure audio volume and playback settings",
+            ) {
+                // Volume control
+                SettingSliderItem(
+                    title = "Playback Volume",
+                    subtitle = "Volume level for audio blasting",
+                    value = uiState.volumeLevel.toFloat(),
+                    valueRange = 0f..100f,
+                    steps = 99,
+                    onValueChange = { viewModel.updateVolumeLevel(it.toInt()) },
+                    valueFormatter = { "${it.toInt()}%" },
+                )
+            }
+        }
+
+        item {
             // Blast Performance Section
             SettingsSection(
                 title = "Blast Performance",
@@ -190,6 +210,36 @@ fun SettingsScreen(
                     subtitle = "Restore all settings to factory defaults",
                     icon = Icons.Default.RestartAlt,
                     onClick = viewModel::resetToDefaults,
+                )
+            }
+        }
+
+        item {
+            // About Section
+            SettingsSection(
+                title = "About",
+                icon = Icons.Default.Info,
+                description = "App information and version details",
+            ) {
+                // App version
+                SettingInfoItem(
+                    title = "App Version",
+                    value = "1.0.0", // TODO: Get from BuildConfig
+                    icon = Icons.Default.Apps,
+                )
+
+                // Build info
+                SettingInfoItem(
+                    title = "Build Type",
+                    value = "Debug", // TODO: Get from BuildConfig
+                    icon = Icons.Default.Build,
+                )
+
+                // Package name
+                SettingInfoItem(
+                    title = "Package",
+                    value = "com.wobbz.fartloop",
+                    icon = Icons.Default.Code,
                 )
             }
         }
@@ -450,6 +500,11 @@ class SettingsViewModel @Inject constructor() : ViewModel() {
         Timber.d("SettingsViewModel initialized with default values")
     }
 
+    fun updateVolumeLevel(volume: Int) {
+        _uiState.value = _uiState.value.copy(volumeLevel = volume)
+        Timber.d("Volume level updated: $volume%")
+    }
+
     fun updateDiscoveryTimeout(seconds: Int) {
         _uiState.value = _uiState.value.copy(discoveryTimeoutSeconds = seconds)
         Timber.d("Discovery timeout updated: ${seconds}s")
@@ -534,6 +589,9 @@ private fun calculateCacheSize(): Long {
  * Discovery timeout balances speed vs coverage. Concurrency prevents network flooding.
  */
 data class SettingsUiState(
+    // Audio settings
+    val volumeLevel: Int = 75, // Default volume at 75%
+
     // Performance settings
     val discoveryTimeoutSeconds: Int = 4,
     val concurrency: Int = 3,

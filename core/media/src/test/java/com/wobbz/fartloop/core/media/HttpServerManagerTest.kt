@@ -135,3 +135,15 @@ class HttpServerManagerTest {
     }
 
     @Test
+    fun `stops server correctly`() = runTest {
+        // Arrange
+        httpServerManager.start()
+        assertTrue(httpServerManager.isAlive)
+
+        // Act
+        httpServerManager.stop()
+
+        // Assert
+        assertFalse(httpServerManager.isAlive)
+    }
+}

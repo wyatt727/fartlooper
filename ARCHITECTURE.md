@@ -279,6 +279,32 @@ The PortScanDiscoverer probes IPs in ARP/neigh with this ordered list:
 4. **Device Quirks:** Real devices behave differently than specifications suggest
 5. **Android Evolution:** New versions regularly introduce breaking permission changes
 
+### 12.5 Current Critical State (v1.1.1)
+**BACKEND SUCCESS ✅ / UI FAILURE ❌**
+
+#### Backend Achievements
+- **Sonos Integration**: Confirmed working with devices at 192.168.4.152:1400
+- **SOAP Implementation**: Manual SOAP envelopes successfully controlling UPnP devices  
+- **Device Discovery**: SSDP, mDNS, and port scanning all operational
+- **Audio Streaming**: HTTP server delivering media to network devices successfully
+- **Architecture**: Clean module separation with `core:blast` properly isolated
+
+#### Critical UI Issues
+- **Complete UI Breakdown**: User interface non-functional despite working backend
+- **No User Access**: Working UPnP functionality unreachable due to UI failure
+- **Navigation Broken**: App startup, navigation routes, or ViewModel injection failing
+- **Integration Disconnect**: StateFlow integration between service and UI broken
+
+#### Technical Paradox
+This represents a classic **technical debt vs user experience** scenario:
+- **Backend Excellence**: UPnP/SOAP implementation working better than ever
+- **User Experience Failure**: No way to access functional capabilities
+- **Architecture Success**: Module separation and service management working correctly  
+- **Integration Failure**: UI layer not properly connected to operational backend
+
+#### Immediate Priority
+**CRITICAL**: Restore basic UI functionality to enable user access to the working Sonos casting capabilities. The technical achievement of functional UPnP implementation is meaningless without user interface access.
+
 ---
 
 ## 13 · Acknowledgements

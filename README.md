@@ -32,6 +32,7 @@ _A playful, developer-focused "network-audio lab" that blasts any clip to every 
 |  | What it does | Why it's cool |
 |--|--------------|---------------|
 | **One-tap Blast** | Starts an embedded HTTP server, discovers renderers (SSDP + mDNS + exhaustive port-scan) and sends `SetAVTransportURI → Play`. | Hear the clip on every speaker or TV within ~5-7 s. |
+| **🆕 Discovery-Only Mode** | Discover devices without blasting audio - multiple entry points throughout UI. | See what's available before committing to blast. |
 | **Pick Any Clip** | Use the default `fart.mp3` (from assets), choose a local file (SAF picker) _or_ paste a stream URL. | Demo latency with your own sounds—including live radio. |
 | **Hot-Swap Media** | Change the clip while a blast is running—no restart. | Instantly prank-switch to an apology track. |
 | **Visual Rule Builder** | GUI for Wi-Fi SSID regex, day/time windows, and clip selection. | Automate blasts only when you get home after 8 p.m. |
@@ -134,8 +135,9 @@ adb shell am start -n com.wobbz.fartloop/.MainActivity
 
 1. **Library tab →** choose default fart, pick any file, or paste a URL.
 2. Optional: **Rules tab →** create an if/then rule (regex SSID, time, day).
-3. **Home tab → BLAST!**
-   *Watch the bottom sheet animate through "HTTP → Discovery → Play" and the chips turn green.*
+3. **Home tab →** 
+   - **🆕 Discover Devices** (without blasting) - Use "Discover Devices" button or refresh icon
+   - **BLAST!** - Watch the bottom sheet animate through "HTTP → Discovery → Play" and the chips turn green.
 
 **Real Testing Results:**
 - Sonos devices at 192.168.4.152:1400 and 192.168.4.29:1400 discovered and blasting successfully
@@ -174,32 +176,65 @@ adb shell am start -n com.wobbz.fartloop/.MainActivity
 
 ## 🎯 Technical Achievements
 
-### UPnP Protocol Implementation
+### ✅ UPnP Protocol Implementation (WORKING)
 - **Manual SOAP envelope generation** with proper XML namespaces
 - **Correct HTTP headers**: `Content-Type: text/xml`, `SOAPAction: "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"`
 - **Device-aware ping logic** that doesn't reject devices returning HTTP 403/404
 - **Sequential SOAP operations** with mutex to prevent UPnP race conditions
+- **🎉 CONFIRMED: Sonos devices successfully playing audio via SOAP control**
 
-### Network Discovery
+### ✅ Network Discovery (WORKING)
 - **SSDP multicast discovery** to 239.255.255.250:1900 following UPnP specification
 - **Intelligent device type detection** with port mapping (Sonos→1400, Chromecast→8008)
 - **Triple-method discovery** combining SSDP + mDNS + port scanning for maximum coverage
 - **Device deduplication** preventing multiple entries for same device
+- **🎉 CONFIRMED: Successfully discovering Sonos at 192.168.4.152:1400**
 
-### Architecture
+### ✅ Backend Architecture (WORKING)
 - **Clean module separation** with core:blast isolating service logic
 - **Proper dependency injection** throughout with Hilt
 - **No circular dependencies** in module graph
 - **Thread-safe concurrency** with proper dispatcher usage
+- **🎉 CONFIRMED: BlastService operational with proper lifecycle management**
+
+### 🚨 CRITICAL ISSUE: UI Completely Broken
+
+**STATUS**: Backend working perfectly, UI non-functional
+
+**PROBLEM**: Despite successful UPnP implementation, the user interface is completely broken:
+- App may crash on startup or fail to render
+- Navigation system non-functional
+- Play button inaccessible
+- No way for users to trigger the working audio blasting
+
+**IMPACT**: **Zero user value** - functional backend unreachable through UI
+
+**ROOT CAUSES** (Investigation needed):
+- Circular dependencies in UI modules
+- ViewModel injection failures  
+- Navigation route breakage
+- StateFlow integration disconnect
+- Compose compilation issues
 
 ---
 
 ## 📝 Roadmap
 
-* **1.1** – Gapless playlist & clip queue
-* **1.2** – Device groups & exclusions  
-* **1.3** – Google Cast SDK integration for Chromecast support
+* **1.1.2** – **🚨 CRITICAL: UI Restoration** - Fix broken user interface to access working Sonos functionality
+* **1.2** – Gapless playlist & clip queue
+* **1.3** – Device groups & exclusions  
+* **1.4** – Google Cast SDK integration for Chromecast support
 * **2.0** – Play-Store beta
+
+## 🚨 Current Priority: UI Emergency
+
+**IMMEDIATE FOCUS**: Restore basic UI functionality so users can access the working UPnP backend.
+
+**Next Steps**:
+1. **App Startup Debug** - Identify crash/rendering failures
+2. **Navigation Repair** - Fix ViewModel injection and route registration  
+3. **Basic UI Access** - Ensure play button becomes accessible
+4. **StateFlow Integration** - Restore real-time progress updates
 
 See [`CHANGELOG.md`](CHANGELOG.md) and [`ADR.md`](ADR.md) for detailed history and architectural decisions.
 

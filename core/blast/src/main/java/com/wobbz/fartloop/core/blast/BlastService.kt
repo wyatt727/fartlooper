@@ -66,6 +66,7 @@ class BlastService : Service() {
         const val ACTION_START_BLAST = "com.wobbz.fartloop.ACTION_START_BLAST"
         const val ACTION_AUTO_BLAST = "com.wobbz.fartloop.ACTION_AUTO_BLAST"
         const val ACTION_STOP_BLAST = "com.wobbz.fartloop.ACTION_STOP_BLAST"
+        const val ACTION_DISCOVER_ONLY = "com.wobbz.fartloop.ACTION_DISCOVER_ONLY"
         const val EXTRA_DISCOVERY_TIMEOUT = "discovery_timeout"
         const val EXTRA_CONCURRENCY = "concurrency"
         const val EXTRA_TRIGGER_REASON = "trigger_reason"
@@ -97,6 +98,20 @@ class BlastService : Service() {
                 action = ACTION_STOP_BLAST
             }
             context.startService(intent)
+        }
+
+        /**
+         * Discover devices without blasting audio.
+         */
+        fun discoverDevices(
+            context: Context,
+            discoveryTimeoutMs: Long = 4000
+        ) {
+            val intent = Intent(context, BlastService::class.java).apply {
+                action = ACTION_DISCOVER_ONLY
+                putExtra(EXTRA_DISCOVERY_TIMEOUT, discoveryTimeoutMs)
+            }
+            context.startForegroundService(intent)
         }
     }
 
@@ -133,6 +148,14 @@ class BlastService : Service() {
             }
             ACTION_STOP_BLAST -> {
                 stopBlastOperation()
+            }
+            ACTION_DISCOVER_ONLY -> {
+                if (!isBlastInProgress) {
+                    val discoveryTimeout = intent.getLongExtra(EXTRA_DISCOVERY_TIMEOUT, 4000)
+                    startDiscoveryOnlyOperation(discoveryTimeout)
+                } else {
+                    Timber.w("Blast in progress, ignoring discovery-only request")
+                }
             }
         }
 
@@ -199,6 +222,7 @@ class BlastService : Service() {
         Timber.i("Stopping blast operation")
 
         isBlastInProgress = false
+        broadcastStageUpdate(BlastStage.IDLE)
 
         serviceScope.launch {
             try {
@@ -213,11 +237,85 @@ class BlastService : Service() {
     }
 
     /**
+     * Start a discovery-only operation without blasting audio.
+     */
+    private fun startDiscoveryOnlyOperation(discoveryTimeoutMs: Long) {
+        Timber.i("Starting discovery-only operation (timeout: ${discoveryTimeoutMs}ms)")
+
+        isBlastInProgress = true // Prevent multiple simultaneous operations
+        blastMetrics.resetForNewBlast()
+
+        startForeground(NOTIFICATION_ID, createNotification("Discovering devices...", BlastPhase.DISCOVERING))
+
+        serviceScope.launch {
+            try {
+                // Only run discovery phase
+                val devices = discoverDevices(discoveryTimeoutMs)
+
+                // Complete discovery operation
+                completeDiscoveryOnly(devices)
+            } catch (e: Exception) {
+                Timber.e(e, "Discovery operation failed")
+                handleDiscoveryError(e)
+            }
+        }
+    }
+
+    /**
+     * Complete discovery-only operation.
+     */
+    private suspend fun completeDiscoveryOnly(devices: List<UpnpDevice>) {
+        Timber.d("Discovery-only operation complete: ${devices.size} devices found")
+
+        val summary = "Discovery complete: ${devices.size} devices found"
+        updateNotification(summary, BlastPhase.COMPLETE)
+
+        // Broadcast discovery completion
+        val intent = Intent("com.wobbz.fartloop.DISCOVERY_COMPLETE").apply {
+            putExtra("devices_found", devices.size)
+        }
+        sendBroadcast(intent)
+
+        broadcastStageUpdate(BlastStage.COMPLETED)
+        broadcastMetricsUpdate()
+
+        // Stop service after a delay
+        kotlinx.coroutines.delay(2000) // Show notification for 2 seconds
+
+        isBlastInProgress = false
+
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    /**
+     * Handle discovery-only operation errors.
+     */
+    private suspend fun handleDiscoveryError(error: Exception) {
+        Timber.e(error, "Discovery operation failed")
+
+        updateNotification("Discovery failed: ${error.message}", BlastPhase.COMPLETE)
+
+        // Broadcast error
+        val intent = Intent("com.wobbz.fartloop.DISCOVERY_ERROR").apply {
+            putExtra("error", error.message)
+        }
+        sendBroadcast(intent)
+
+        isBlastInProgress = false
+
+        kotlinx.coroutines.delay(2000) // Show error for 2 seconds
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    /**
      * Stage 1: Start HTTP server for media serving.
      */
     private suspend fun startHttpServer() = withContext(Dispatchers.IO) {
         Timber.d("Stage 1: Starting HTTP server")
         updateNotification("Starting HTTP server...", BlastPhase.HTTP_STARTING)
+        broadcastStageUpdate(BlastStage.HTTP_STARTING)
 
         blastMetrics.startHttpTiming()
 
@@ -227,6 +325,7 @@ class BlastService : Service() {
         }
 
         blastMetrics.completeHttpStartup()
+        broadcastMetricsUpdate()
         Timber.i("HTTP server started: ${result.getOrNull()}")
     }
 
@@ -236,6 +335,7 @@ class BlastService : Service() {
     private suspend fun discoverDevices(timeoutMs: Long): List<UpnpDevice> = withContext(Dispatchers.IO) {
         Timber.d("Stage 2: Discovering devices (timeout: ${timeoutMs}ms)")
         updateNotification("Discovering devices...", BlastPhase.DISCOVERING)
+        broadcastStageUpdate(BlastStage.DISCOVERING)
 
         blastMetrics.startDiscoveryTiming()
 
@@ -250,9 +350,13 @@ class BlastService : Service() {
                 devices.add(device)
                 Timber.d("Discovered device: ${device.friendlyName}")
                 updateNotification("Found ${devices.size} devices...", BlastPhase.DISCOVERING)
+
+                // Broadcast device discovery
+                broadcastDeviceUpdate(device, DeviceStatus.DISCOVERED)
             }
 
         blastMetrics.completeDiscovery(devices.size)
+        broadcastMetricsUpdate()
         Timber.i("Discovery complete: ${devices.size} devices found")
 
         return@withContext devices
@@ -264,6 +368,7 @@ class BlastService : Service() {
     private suspend fun blastToDevices(devices: List<UpnpDevice>, concurrency: Int) = withContext(Dispatchers.IO) {
         Timber.d("Stage 3: Blasting to ${devices.size} devices (concurrency: $concurrency)")
         updateNotification("Sending to ${devices.size} devices...", BlastPhase.BLASTING)
+        broadcastStageUpdate(BlastStage.BLASTING)
 
         if (devices.isEmpty()) {
             Timber.w("No devices found to blast to")
@@ -296,6 +401,7 @@ class BlastService : Service() {
         // Wait for all blasts to complete
         jobs.forEach { it.join() }
 
+        broadcastMetricsUpdate()
         Timber.i("Blast phase complete")
     }
 
@@ -307,21 +413,25 @@ class BlastService : Service() {
 
         try {
             Timber.d("Blasting to ${device.friendlyName}")
+            broadcastDeviceUpdate(device, DeviceStatus.CONNECTING)
 
             val success = upnpControlClient.pushClip(device.ipAddress, device.port, device.controlUrl, mediaUrl)
             val duration = (System.currentTimeMillis() - startTime).toInt()
 
             if (success) {
                 blastMetrics.recordDeviceSuccess(device.friendlyName, duration)
+                broadcastDeviceUpdate(device, DeviceStatus.SUCCESS)
                 Timber.i("✅ Success: ${device.friendlyName} (${duration}ms)")
             } else {
                 val error = "Cast failed for ${device.friendlyName}"
                 blastMetrics.recordDeviceFailure(device.friendlyName, error)
+                broadcastDeviceUpdate(device, DeviceStatus.FAILED)
                 Timber.w("❌ Failed: ${device.friendlyName} - $error")
             }
         } catch (e: Exception) {
             val duration = (System.currentTimeMillis() - startTime).toInt()
             blastMetrics.recordDeviceFailure(device.friendlyName, e.message ?: "Exception")
+            broadcastDeviceUpdate(device, DeviceStatus.FAILED)
             Timber.e(e, "❌ Exception blasting to ${device.friendlyName}")
         }
     }
@@ -331,6 +441,7 @@ class BlastService : Service() {
      */
     private suspend fun completeBlast() {
         Timber.d("Stage 4: Completing blast operation")
+        broadcastStageUpdate(BlastStage.COMPLETING)
 
         blastMetrics.completeBlast()
 
@@ -346,7 +457,9 @@ class BlastService : Service() {
         )
 
         // Broadcast final results
+        broadcastStageUpdate(BlastStage.COMPLETED)
         broadcastBlastComplete(metrics)
+        broadcastMetricsUpdate()
 
         // Stop HTTP server and service after a delay
         kotlinx.coroutines.delay(3000) // Show final notification for 3 seconds
@@ -460,6 +573,64 @@ class BlastService : Service() {
                 setShowBadge(false)
             }
             notificationManager?.createNotificationChannel(channel)
+        }
+    }
+
+    /**
+     * Broadcast stage updates to UI components.
+     */
+    private fun broadcastStageUpdate(stage: BlastStage) {
+        val intent = Intent("com.wobbz.fartloop.BLAST_STAGE_UPDATE").apply {
+            putExtra("stage", stage.name)
+        }
+        sendBroadcast(intent)
+        Timber.d("BlastService: Broadcasted stage update: $stage")
+    }
+
+    /**
+     * Broadcast metrics updates to UI components.
+     */
+    private fun broadcastMetricsUpdate() {
+        val metrics = blastMetrics.currentMetrics.value
+        val intent = Intent("com.wobbz.fartloop.BLAST_METRICS_UPDATE").apply {
+            putExtra("httpStartupMs", metrics.httpStartupMs.toLong())
+            putExtra("discoveryTimeMs", metrics.discoveryDurationMs.toLong())
+            putExtra("devicesFound", metrics.devicesDiscovered)
+            putExtra("successfulBlasts", metrics.successfulDevices)
+            putExtra("failedBlasts", metrics.failedDevices)
+            putExtra("isRunning", !metrics.isComplete)
+        }
+        sendBroadcast(intent)
+        Timber.d("BlastService: Broadcasted metrics update")
+    }
+
+    /**
+     * Broadcast device updates to UI components.
+     */
+    private fun broadcastDeviceUpdate(device: UpnpDevice, status: DeviceStatus) {
+        val intent = Intent("com.wobbz.fartloop.BLAST_DEVICE_UPDATE").apply {
+            putExtra("deviceId", "${device.ipAddress}:${device.port}")
+            putExtra("deviceName", device.friendlyName)
+            putExtra("deviceType", mapDeviceType(device).name)
+            putExtra("ipAddress", device.ipAddress)
+            putExtra("port", device.port)
+            putExtra("status", status.name)
+        }
+        sendBroadcast(intent)
+        Timber.d("BlastService: Broadcasted device update: ${device.friendlyName} -> $status")
+    }
+
+    /**
+     * Map UpnpDevice to DeviceType for UI display.
+     */
+    private fun mapDeviceType(device: UpnpDevice): DeviceType {
+        return when {
+            device.friendlyName.contains("Sonos", ignoreCase = true) -> DeviceType.SONOS
+            device.friendlyName.contains("Chromecast", ignoreCase = true) -> DeviceType.CHROMECAST
+            device.friendlyName.contains("Samsung", ignoreCase = true) -> DeviceType.SAMSUNG
+            device.port == 1400 -> DeviceType.SONOS
+            device.port == 8008 || device.port == 8009 -> DeviceType.CHROMECAST
+            else -> DeviceType.UPNP
         }
     }
 }

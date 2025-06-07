@@ -199,6 +199,8 @@ private fun HomeScreenRoute() {
     HomeScreen(
         uiState = uiState,
         onBlastClick = viewModel::startBlast,
+        onStopClick = viewModel::stopBlast,
+        onDiscoverClick = viewModel::discoverDevices,
         onDeviceClick = viewModel::onDeviceSelected,
         onToggleMetrics = viewModel::toggleMetricsExpansion,
     )

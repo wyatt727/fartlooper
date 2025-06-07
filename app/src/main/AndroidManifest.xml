@@ -78,6 +78,7 @@
                 <action android:name="com.wobbz.fartloop.ACTION_START_BLAST" />
                 <action android:name="com.wobbz.fartloop.ACTION_RUN_CLIP" />
                 <action android:name="com.wobbz.fartloop.ACTION_AUTO_BLAST" />
+                <action android:name="com.wobbz.fartloop.ACTION_DISCOVER_ONLY" />
             </intent-filter>
         </service>
 
