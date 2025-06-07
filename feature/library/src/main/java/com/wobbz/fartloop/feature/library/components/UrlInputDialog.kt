@@ -65,7 +65,17 @@ fun UrlInputDialog(
         }
 
         // Combined validation state (client + server)
-        val finalValidation = validationResult ?: clientValidation
+        // TYPE CONVERSION FINDING: Convert ClientUrlValidation to UrlValidationResult for consistent typing
+        // Server validation takes precedence, but client validation provides immediate feedback
+        val finalValidation = validationResult ?: when (clientValidation) {
+            is ClientUrlValidation.Valid -> UrlValidationResult.Valid(
+                contentType = null,
+                contentLength = null,
+                responseCode = 200  // Assume OK for client-side validation
+            )
+            is ClientUrlValidation.Invalid -> UrlValidationResult.Invalid(clientValidation.reason)
+            is ClientUrlValidation.Empty -> UrlValidationResult.Invalid("URL cannot be empty")
+        }
         val isValidFormat = clientValidation is ClientUrlValidation.Valid
         val canSubmit = isValidFormat && validationResult !is UrlValidationResult.Loading
 
@@ -183,13 +193,12 @@ private fun UrlInputField(
     onSubmit: () -> Unit
 ) {
     // Determine field appearance based on validation state
+    // TYPE MISMATCH FIXING: validation parameter is UrlValidationResult, not ClientUrlValidation
+    // Client validation happens inside this component, server validation comes from outside
     val fieldState = when (validation) {
         is UrlValidationResult.Valid -> FieldState.SUCCESS
         is UrlValidationResult.Invalid -> FieldState.ERROR
         is UrlValidationResult.Loading -> FieldState.LOADING
-        is ClientUrlValidation.Valid -> FieldState.VALID
-        is ClientUrlValidation.Invalid -> if (urlText.isBlank()) FieldState.NEUTRAL else FieldState.ERROR
-        is ClientUrlValidation.Empty -> FieldState.NEUTRAL
     }
 
     OutlinedTextField(
@@ -257,6 +266,8 @@ private fun ValidationFeedback(
     validation: UrlValidationResult,
     modifier: Modifier = Modifier
 ) {
+    // TYPE MISMATCH FIXING: Handle all UrlValidationResult cases explicitly
+    // No need for else clause since all sealed class cases are covered
     val (message, color, icon) = when (validation) {
         is UrlValidationResult.Valid -> Triple(
             "Stream accessible • ${validation.contentType ?: "Unknown format"}",
@@ -273,12 +284,6 @@ private fun ValidationFeedback(
             MaterialTheme.colorScheme.primary,
             Icons.Default.CloudSync
         )
-        is ClientUrlValidation.Invalid -> Triple(
-            validation.reason,
-            MetricColors.Error,
-            Icons.Default.Error
-        )
-        else -> return // No feedback for empty or valid format states
     }
 
     AnimatedVisibility(

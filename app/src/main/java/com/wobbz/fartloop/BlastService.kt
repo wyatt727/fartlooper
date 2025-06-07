@@ -4,17 +4,19 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import com.wobbz.fartloop.core.media.HttpServerManager
 import com.wobbz.fartloop.core.media.StorageUtil
-import com.wobbz.fartloop.core.network.DiscoveryBus
-import com.wobbz.fartloop.core.network.UpnpControlClient
+import com.wobbz.fartloop.core.network.ModernDiscoveryBus
+import com.wobbz.fartloop.core.network.ModernUpnpControlClient
 import com.wobbz.fartloop.core.network.UpnpDevice
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -36,22 +38,29 @@ import javax.inject.Inject
  * 5. Broadcast final results
  *
  * Runs as foreground service to survive Doze mode and provide user feedback.
+ *
+ * HILT COMPATIBILITY FINDING: Changed from LifecycleService to Service
+ * Hilt doesn't support LifecycleService directly, so we manage coroutines manually
+ * with a SupervisorJob scope that gets cancelled in onDestroy.
  */
 @AndroidEntryPoint
-class BlastService : LifecycleService() {
+class BlastService : Service() {
 
     @Inject lateinit var httpServerManager: HttpServerManager
 
     @Inject lateinit var storageUtil: StorageUtil
 
-    @Inject lateinit var discoveryBus: DiscoveryBus
+    @Inject lateinit var discoveryBus: ModernDiscoveryBus
 
-    @Inject lateinit var upnpControlClient: UpnpControlClient
+    @Inject lateinit var upnpControlClient: ModernUpnpControlClient
 
     @Inject lateinit var blastMetrics: BlastMetrics
 
     private var notificationManager: NotificationManager? = null
     private var isBlastInProgress = false
+
+    // Manual coroutine scope management since we can't use LifecycleService with Hilt
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
         const val ACTION_START_BLAST = "com.wobbz.fartloop.ACTION_START_BLAST"
@@ -136,14 +145,17 @@ class BlastService : LifecycleService() {
         super.onDestroy()
         Timber.d("BlastService destroyed")
 
-        // Ensure cleanup
-        lifecycleScope.launch {
+        // Cancel all coroutines and cleanup
+        serviceScope.launch {
             try {
                 httpServerManager.stopServer()
             } catch (e: Exception) {
                 Timber.w(e, "Error stopping HTTP server during service destroy")
             }
         }
+
+        // Cancel the service scope to clean up all coroutines
+        serviceScope.cancel()
     }
 
     /**
@@ -160,7 +172,7 @@ class BlastService : LifecycleService() {
         val startMessage = if (isAutoTriggered) "Auto-blast starting..." else "Starting blast..."
         startForeground(NOTIFICATION_ID, createNotification(startMessage, BlastPhase.HTTP_STARTING))
 
-        lifecycleScope.launch {
+        serviceScope.launch {
             try {
                 // Stage 1: Start HTTP Server
                 startHttpServer()
@@ -188,7 +200,7 @@ class BlastService : LifecycleService() {
 
         isBlastInProgress = false
 
-        lifecycleScope.launch {
+        serviceScope.launch {
             try {
                 httpServerManager.stopServer()
             } catch (e: Exception) {
@@ -271,7 +283,7 @@ class BlastService : LifecycleService() {
         // Process devices with controlled concurrency
         val semaphore = kotlinx.coroutines.sync.Semaphore(concurrency)
         val jobs = devices.map { device ->
-            lifecycleScope.launch(Dispatchers.IO) {
+            serviceScope.launch(Dispatchers.IO) {
                 semaphore.acquire()
                 try {
                     blastToSingleDevice(device, mediaUrl)

@@ -243,8 +243,10 @@ private fun DrawScope.drawWaveform(
 
     amplitudes.forEachIndexed { index, amplitude ->
         // Logarithmic scaling for better visual representation
+        // TYPE MISMATCH FIXING: log10 returns Double, need explicit Float conversion
+        // amplitude is Float, but log10 requires Double and returns Double
         val scaledAmplitude = if (amplitude > 0) {
-            kotlin.math.log10(amplitude * 9 + 1) // Maps 0-1 to 0-1 logarithmically
+            kotlin.math.log10((amplitude * 9 + 1).toDouble()).toFloat() // Maps 0-1 to 0-1 logarithmically
         } else {
             0f
         }
@@ -283,7 +285,8 @@ private fun DrawScope.drawPlaceholderWaveform(
     val maxBarHeight = size.height * 0.4f
 
     repeat(barCount) { index ->
-        val amplitude = kotlin.math.sin(index * 0.3) * 0.5f + 0.5f // Sine wave pattern
+        // TYPE FIXING: sin() returns Double, need Float conversion for Canvas operations
+        val amplitude = kotlin.math.sin(index * 0.3).toFloat() * 0.5f + 0.5f // Sine wave pattern
         val barHeight = amplitude * maxBarHeight
         val x = index * barWidth
 

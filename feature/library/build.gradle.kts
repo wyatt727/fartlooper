@@ -53,12 +53,25 @@ dependencies {
     implementation(libs.timber)
     kapt(libs.hilt.compiler)
 
+    // MISSING DEPENDENCY FINDING: Material Icons Extended required for Folder, Link, Error, LibraryMusic icons
+    // These icons are referenced throughout LibraryScreen and ClipThumbnail components
+    // Without this dependency, all Material icon references fail compilation
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // MISSING DEPENDENCY FINDING: Compose Foundation required for LazyListState and advanced UI components
+    // LazyColumn, LazyListState, and foundation APIs are used extensively in LibraryScreen
+    implementation("androidx.compose.foundation:foundation:1.6.0")
+
+    // MISSING DEPENDENCY FINDING: Activity Compose for result launchers and integration
+    // Storage Access Framework integration requires activity result launcher support
+    implementation("androidx.activity:activity-compose:1.8.2")
+
     implementation(project(":design"))
     implementation(project(":core:media"))
-    
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
-} 
+}

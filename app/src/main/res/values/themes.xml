@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        ANDROID THEME BRIDGE FINDING: AndroidManifest.xml requires View-based theme references
+        even when app uses Compose themes. This bridges the gap between Android Views and Compose.
+        The actual app theming happens in design/theme/Theme.kt with FartLooperTheme composable.
+
+        THEME COMPATIBILITY FINDING: Material3 themes in Compose require corresponding Material3
+        themes in XML for proper splash screen, window insets, and system UI integration.
+        This ensures consistent theming before Compose takes over.
+    -->
+
+    <!--
+        Main app theme for Fart-Looper
+        FINDING: Uses Theme.Material3.DayNight.NoActionBar as parent for proper Material3 integration
+        NoActionBar is required since app uses Compose navigation instead of traditional ActionBar
+    -->
+    <style name="Theme.FartLooper" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color - matches FartRed from Compose theme -->
+        <item name="colorPrimary">@color/fart_red</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+
+        <!-- Surface colors for proper Material3 theming -->
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/black</item>
+
+        <!--
+            FINDING: android:windowSplashScreenBackground ensures consistent branding
+            during app startup before Compose theme takes effect
+        -->
+        <item name="android:windowSplashScreenBackground">@color/fart_red</item>
+
+        <!--
+            FINDING: Enable edge-to-edge display for modern Android experience
+            Compose handles window insets properly in FartLooperTheme
+        -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!--
+        ACTIVITY THEME FINDING: Main activity needs specific theme configuration
+        for proper Material3 integration and launch experience
+    -->
+    <style name="Theme.FartLooper.MainActivity" parent="Theme.FartLooper">
+        <!-- Splash screen configuration -->
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/fart_red</item>
+    </style>
+</resources>

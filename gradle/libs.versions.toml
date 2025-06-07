@@ -6,6 +6,8 @@ hilt = "2.48"
 nanohttpd = "2.3.1"
 cling = "2.1.2"
 jmdns = "3.5.8"
+upnpcast = "1.1.1"
+dm-upnp = "1.5.6"
 work = "2.9.0"
 timber = "5.0.1"
 moshi = "1.15.0"
@@ -31,6 +33,7 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
@@ -40,6 +43,9 @@ nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanoht
 cling-core = { group = "org.fourthline.cling", name = "cling-core", version.ref = "cling" }
 cling-support = { group = "org.fourthline.cling", name = "cling-support", version.ref = "cling" }
 jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
+# Modern alternatives for UPnP/mDNS (Cling is EOL)
+upnpcast = { group = "com.github.yinnho", name = "UPnPCast", version.ref = "upnpcast" }
+dm-upnp-android = { group = "fr.distrimind.oss.upnp.android", name = "DM-UPnP-Android", version.ref = "dm-upnp" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshi" }
 moshi-adapters = { group = "com.squareup.moshi", name = "moshi-adapters", version.ref = "moshi" }

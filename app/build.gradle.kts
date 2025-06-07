@@ -7,11 +7,11 @@ plugins {
 
 android {
     namespace = "com.wobbz.fartloop"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.wobbz.fartloop"
-        minSdk = 21
+        minSdk = 24
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -69,6 +69,8 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.timber)
+    implementation(libs.nanohttpd)  // DEPENDENCY FINDING: App module needs NanoHTTPD for HttpServerManager access
+    implementation(libs.compose.material.icons.extended)  // ICON DEPENDENCY: Extended icons for navigation and settings
     kapt(libs.hilt.compiler)
 
     // Module dependencies

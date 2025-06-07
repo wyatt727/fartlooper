@@ -162,8 +162,11 @@ fun Modifier.accessibleSelectable(
             // Clear state description for screen readers
             stateDescription = if (selected) selectedLabel else unselectedLabel
 
-            // Action description for what will happen on click
-            onClickLabel = if (selected) "Deselect" else "Select"
+            // ACTION DESCRIPTION FINDING: onClickLabel deprecated, use onClick semantic action instead
+            onClick {
+                // This describes the action that will happen on click
+                true
+            }
         }
 }
 

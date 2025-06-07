@@ -1,6 +1,7 @@
 package com.wobbz.fartloop.feature.rules.model
 
-import com.wobbz.fartloop.app.NetworkCallbackUtil
+import com.wobbz.fartloop.core.network.NetworkCallbackUtil
+import com.wobbz.fartloop.core.network.RuleEvaluator
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.time.DayOfWeek
@@ -18,13 +19,16 @@ import javax.inject.Singleton
 @Singleton
 class RealRuleEvaluator @Inject constructor(
     private val ruleRepository: RuleRepository
-) : NetworkCallbackUtil.RuleEvaluator {
+) : RuleEvaluator {
 
     /**
      * Evaluate if any enabled rule should trigger an auto-blast.
      *
      * Implementation Finding: Uses runBlocking to convert async repository to sync interface.
      * First matching rule wins to prevent multiple auto-blasts firing simultaneously.
+     *
+     * INTERFACE IMPLEMENTATION FINDING: Implements main app RuleEvaluator interface
+     * This allows dependency injection from app module to work correctly with Hilt bindings
      */
     override fun shouldAutoBlast(networkInfo: NetworkCallbackUtil.NetworkInfo): Boolean {
         return kotlinx.coroutines.runBlocking {

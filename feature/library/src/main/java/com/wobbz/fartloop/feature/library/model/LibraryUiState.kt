@@ -21,7 +21,8 @@ data class LibraryUiState(
     val isUrlValid: Boolean = false,
     val errorMessage: String? = null,
     val isAnalyzingClip: Boolean = false,
-    val waveformData: WaveformData? = null
+    val waveformData: WaveformData? = null,
+    val urlValidationResult: UrlValidationResult? = null  // URL validation state for dialog
 ) {
     /**
      * Computed properties for UI logic
@@ -189,10 +190,13 @@ data class WaveformData(
          *
          * Preview Finding: Realistic mock data improves design validation
          * Using sine wave patterns creates recognizable waveform shapes for UI testing
+         *
+         * MATH API FIXING: kotlin.math.random() doesn't exist, use kotlin.random.Random
+         * kotlin.math.abs() requires specific type, provide Float explicitly
          */
         fun mock(): WaveformData {
             val amplitudes = (0 until 100).map { i ->
-                kotlin.math.sin(i * 0.1) * 0.8f + kotlin.math.random().toFloat() * 0.2f
+                kotlin.math.sin(i * 0.1).toFloat() * 0.8f + kotlin.random.Random.nextFloat() * 0.2f
             }.map { kotlin.math.abs(it) }
 
             return WaveformData(

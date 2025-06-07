@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- PERMISSION FINDING: Network access permissions essential for UPnP/DLNA discovery and media serving -->
+    <!-- INTERNET: Required for HTTP server, SOAP commands, and remote stream proxy -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- NETWORK STATE FINDING: WiFi state detection crucial for auto-blast rule triggering -->
+    <!-- ACCESS_NETWORK_STATE: Monitor WiFi connectivity changes for NetworkCallbackUtil -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- MULTICAST FINDING: SSDP and mDNS discovery require multicast packet reception -->
+    <!-- CHANGE_WIFI_MULTICAST_STATE: Enable SSDP (UDP 1900) and mDNS (UDP 5353) discovery -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
+    <!-- FOREGROUND SERVICE FINDING: BlastService runs as foreground service for Doze survival -->
+    <!-- FOREGROUND_SERVICE: Allow BlastService to survive aggressive power management -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- STORAGE FINDING: Media file picker requires storage access for local audio files -->
+    <!-- READ_EXTERNAL_STORAGE: Access media files via Storage Access Framework -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- NOTIFICATION FINDING: Foreground service requires notification channel management -->
+    <!-- POST_NOTIFICATIONS: Display blast progress notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- APPLICATION CONFIGURATION FINDING: Hilt requires application class specification -->
+    <!-- MANIFEST MERGER FIX FINDING: UPnPCast library defines Theme.UPnPCast which conflicts with our Theme.FartLooper -->
+    <!-- tools:replace="android:theme" forces our theme to override the library's theme -->
+    <!-- This resolves: "Attribute application@theme value=(@style/Theme.FartLooper) is also present at UPnPCast" -->
+    <application
+        android:name=".FartLooperApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FartLooper"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31"
+        tools:replace="android:theme">
+
+        <!-- MAIN ACTIVITY FINDING: Single activity with Compose navigation -->
+        <!-- MainActivity: Entry point with NavHost and bottom navigation -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.FartLooper"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- BLAST SERVICE FINDING: Foreground service for UPnP discovery and media blasting -->
+        <!-- BlastService: Core service handling HTTP server, discovery, and SOAP commands -->
+        <service
+            android:name=".BlastService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+
+            <!-- ADB INTEGRATION FINDING: Allow external triggering via ADB intent -->
+            <intent-filter>
+                <action android:name="com.wobbz.fartloop.ACTION_RUN_CLIP" />
+                <action android:name="com.wobbz.fartloop.ACTION_AUTO_BLAST" />
+            </intent-filter>
+        </service>
+
+        <!-- SIMULATOR SERVICE FINDING: Development-only UPnP renderer simulation -->
+        <!-- SimulatedRendererService: Local UPnP device for testing (dev flavor only) -->
+        <service
+            android:name="com.wobbz.fartloop.core.simulator.SimulatedRendererService"
+            android:enabled="true"
+            android:exported="false"
+            tools:node="remove" />
+
+        <!-- NETWORK CALLBACK FINDING: System service for WiFi state monitoring -->
+        <!-- NetworkCallbackUtil: Monitors connectivity changes for auto-blast rules -->
+        <!-- Registered programmatically, no manifest entry required -->
+
+        <!-- FILE PROVIDER FINDING: Secure file sharing for media assets -->
+        <!-- Required for sharing media files with external apps -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.wobbz.fartloop.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- WORK MANAGER FINDING: Background task execution for robust blast scheduling -->
+        <!-- WorkManager: Handles blast retry and background discovery tasks -->
+        <!-- MANIFEST MERGER FINDING: tools:replace resolves authorities conflict with WorkManager library -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="com.wobbz.fartloop.androidx-startup"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:authorities">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+    </application>
+
+</manifest>

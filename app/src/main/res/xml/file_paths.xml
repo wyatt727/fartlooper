@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FILE PROVIDER FINDING: Secure file sharing configuration for media assets -->
+<!-- Enables sharing of cached audio files and media downloads with external apps -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- CACHE DIRECTORY FINDING: HTTP server serves files from cache directory -->
+    <!-- cache-path: Maps to Context.getCacheDir() for temporary audio files -->
+    <cache-path name="cached_audio" path="audio/" />
+
+    <!-- EXTERNAL FILES FINDING: User-selected media files from Storage Access Framework -->
+    <!-- external-files-path: Maps to Context.getExternalFilesDir() for downloaded content -->
+    <external-files-path name="external_audio" path="audio/" />
+
+    <!-- INTERNAL FILES FINDING: App-private files and generated content -->
+    <!-- files-path: Maps to Context.getFilesDir() for app-private audio storage -->
+    <files-path name="internal_audio" path="audio/" />
+
+</paths>

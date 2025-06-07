@@ -55,11 +55,29 @@ dependencies {
     implementation(libs.timber)
     kapt(libs.hilt.compiler)
 
+    // MISSING DEPENDENCY FINDING: Material Icons Extended required for Wifi, Schedule, CalendarMonth, VolumeUp icons
+    // Rules module uses various Material icons for condition and action representation
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // MISSING DEPENDENCY FINDING: Compose Foundation required for advanced UI components
+    implementation("androidx.compose.foundation:foundation:1.6.0")
+
+    // MISSING DEPENDENCY FINDING: ViewModel Compose for state management
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+
     implementation(project(":design"))
-    
+    implementation(project(":core:media"))
+    // CRITICAL DEPENDENCY FINDING: Rules module requires network module for NetworkCallbackUtil and network state access
+    // RealRuleEvaluator depends on NetworkCallbackUtil for Wi-Fi state detection and auto-blast triggering
+    implementation(project(":core:network"))
+
+    // CIRCULAR DEPENDENCY RESOLUTION: NetworkCallbackUtil and RuleEvaluator interfaces moved to core:network
+    // This eliminates the circular dependency between app and feature:rules modules
+    // implementation(project(":app")) // REMOVED - was causing circular dependency
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
-} 
+}

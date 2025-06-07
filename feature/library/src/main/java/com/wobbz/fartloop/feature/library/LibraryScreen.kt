@@ -1,11 +1,15 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.wobbz.fartloop.feature.library
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -56,6 +60,7 @@ fun LibraryScreen(
     onUrlValidated: (String) -> Unit,
     onShowUrlDialog: () -> Unit,
     onDismissUrlDialog: () -> Unit,
+    onRetryLoad: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -104,7 +109,7 @@ fun LibraryScreen(
                 uiState.hasError -> {
                     LibraryErrorState(
                         errorMessage = uiState.errorMessage ?: "Unknown error",
-                        onRetry = { /* TODO: Retry action */ },
+                        onRetry = onRetryLoad,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }

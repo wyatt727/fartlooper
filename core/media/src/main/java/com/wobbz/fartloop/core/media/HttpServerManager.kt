@@ -216,8 +216,9 @@ class HttpServerManager @Inject constructor(
             response
         } catch (e: Exception) {
             Timber.e(e, "Error proxying remote stream: $proxyUrl")
+            // HTTP STATUS FINDING: BAD_GATEWAY not available in this NanoHTTPD version, use INTERNAL_ERROR
             newFixedLengthResponse(
-                Response.Status.BAD_GATEWAY,
+                Response.Status.INTERNAL_ERROR,
                 "text/plain",
                 "Error accessing remote stream: ${e.message}"
             )

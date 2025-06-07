@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- BACKUP FINDING: Auto Backup configuration for user data and settings -->
+<!-- Includes user preferences but excludes sensitive cache and temporary files -->
+<full-backup-content xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- INCLUDE USER DATA FINDING: Backup user preferences and rule configurations -->
+    <include domain="sharedpref" path="." />
+    <include domain="file" path="audio/" />
+
+    <!-- EXCLUDE CACHE FINDING: Exclude temporary files and network cache -->
+    <exclude domain="cache" path="." />
+    <exclude domain="file" path="temp/" />
+
+</full-backup-content>

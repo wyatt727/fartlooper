@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    // MODERN DEPENDENCIES: Re-enabling Hilt with UPnPCast and jMDNS libraries
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt)
 }
@@ -35,12 +36,25 @@ android {
 
 dependencies {
     implementation(libs.androidx.core)
-    // VENDOR DEPENDENCY FINDING: Use Maven Central dependencies instead of submodules
-    // Cling and mDNS libraries available on Maven Central with better compatibility
-    implementation(libs.cling.core)
-    implementation(libs.cling.support)
+
+    // UPNP/MDNS LIBRARY RESOLUTION: Using modern alternatives to deprecated Cling
+    // jMDNS is available on Maven Central and actively maintained
     implementation(libs.jmdns)
+
+    // UPnP Options: Choose ONE of the following based on project needs
+    // Option A: UPnPCast - Modern, lightweight, Kotlin-based (RECOMMENDED)
+    implementation(libs.upnpcast)
+
+    // Option B: DM-UPnP - Actively maintained Cling fork with security fixes
+    // implementation(libs.dm-upnp-android)
+
+    // LEGACY CLING: Original deprecated libraries (fallback only)
+    // implementation(libs.cling.core)
+    // implementation(libs.cling.support)
+
     implementation(libs.timber)
+
+    // HILT DEPENDENCY INJECTION: Re-enabled with modern libraries
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
 

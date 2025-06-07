@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DATA EXTRACTION FINDING: Android 12+ privacy rules for app data handling -->
+<!-- Controls what data can be extracted during device transfers and backups -->
+<data-extraction-rules xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- CLOUD BACKUP FINDING: User preferences and rule configurations for cloud backup -->
+    <cloud-backup>
+        <include domain="sharedpref" path="." />
+        <exclude domain="cache" path="." />
+    </cloud-backup>
+
+    <!-- DEVICE TRANSFER FINDING: Essential app data for device-to-device transfers -->
+    <device-transfer>
+        <include domain="sharedpref" path="." />
+        <include domain="file" path="audio/" />
+        <exclude domain="cache" path="." />
+    </device-transfer>
+
+</data-extraction-rules>

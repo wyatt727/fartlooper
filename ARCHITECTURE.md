@@ -29,6 +29,13 @@ app
 All modules are **pure Kotlin**; UI is 100 % **Jetpack Compose** with a Material 3 design system.  
 Dependency injection is provided by **Hilt**; concurrency by **Kotlin Coroutines / Flow**.
 
+**📚 Core Library Stack:**
+- **UPnP Control:** UPnPCast 1.1.1 ✅ (Modern Kotlin-first library, actively maintained)
+- **mDNS Discovery:** jMDNS 3.5.8 ✅ (Industry standard Java mDNS implementation)
+- **HTTP Server:** NanoHTTPD 2.3.1 ✅ (Lightweight, reliable HTTP server)
+- **Min SDK:** 24 (required by UPnPCast) **Target SDK:** 34
+- **Build Status:** ✅ FULLY OPERATIONAL - All dependencies resolved and compiling successfully
+
 ---
 
 ## 2 · Runtime Component Model
@@ -38,8 +45,8 @@ flowchart LR
   B -->|BLAST FAB| C(BlastService)
   C -->|start|  D(HttpServerManager)
   C -->|discover| E(DiscoveryBus)
-  E --> F1(SsdpDiscoverer)
-  E --> F2(MdnsDiscoverer)
+  E --> F1(UPnPCastDiscoverer)
+  E --> F2(JmDNSDiscoverer)
   E --> F3(PortScanDiscoverer)
   E -->|Flow<UpnpDevice>| G(UpnpControlClient)
   G -->|SOAP| H[(Renderer)]
@@ -54,7 +61,7 @@ flowchart LR
 * **BlastService** is a *foreground* `LifecycleService` responsible for the whole blast pipeline.
 * **HttpServerManager** is a singleton per process; serves `/media/current.mp3` or `/media/stream`.
 * **DiscoveryBus** merges three asynchronous discoverers into a single cold Flow.
-* **UpnpControlClient** performs the `SetAVTransportURI` → `Play` SOAP pair.
+* **ModernUpnpControlClient** performs simplified UPnP control via UPnPCast (replaces complex SOAP construction).
 
 The pipeline is **fully back-pressure-aware**; every network call is a suspending function.
 Parallelism is capped (`concurrency = 3`) via `flatMapMerge`.
@@ -75,12 +82,10 @@ User -> UI: tap BLAST
 UI -> SVC: startService()
 SVC -> HTTP: start(port 8080)
 SVC -> DISC: discoverAll(4 s)
-DISC->DISC: SSDP / mDNS / port-scan
+DISC->DISC: UPnPCast / jMDNS / port-scan
 DISC-->SVC: UpnpDevice(ip,controlURL)
 loop for each device
-  SVC -> DEV: SetAVTransportURI (mediaUrl)
-  DEV --> SVC: 200 OK
-  SVC -> DEV: Play
+  SVC -> DEV: UPnPCast.play(mediaUrl)
   DEV --> SVC: 200 OK
   SVC -> UI: chip ✅, update metrics
 end
@@ -176,7 +181,13 @@ Generate with `./gradlew generateUml` (custom task).
 
 ## 11 · Acknowledgements
 
-NanoHTTPD, Cling, mdns-java, Compose-Waveform, Accompanist, Material 3.
+**Modern Libraries:** NanoHTTPD, UPnPCast, jMDNS, Compose-Waveform, Accompanist, Material 3.
+
+**⚠️ DEPRECATED LIBRARIES - DO NOT USE:**
+- **Cling 2.1.2** - End-of-Life since 2019, security vulnerabilities, unavailable from Maven Central
+- **mdns-java** - Poor maintenance, compatibility issues with modern Android
+
+See ADR-006 for complete migration rationale and implementation details.
 
 ---
 

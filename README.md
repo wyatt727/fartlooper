@@ -57,18 +57,28 @@ fart-looper/
 
 ```bash
 # 1. Clone
-git clone https://github.com/yourname/fart-looper.git
-cd fart-looper
+git clone https://github.com/wyatt727/fartlooper.git
+cd fartlooper
 
 # 2. First-time tool sync
 ./gradlew help         # downloads wrapper & dependencies
 
 # 3. Install debug build on attached phone/emulator
-./gradlew installDebug
-adb shell am start -n com.example.fartlooper/.MainActivity
+./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.wobbz.fartloop/.MainActivity
 ````
 
-> **Min SDK 21** — works fine on Android 5.0+; best UX on Android 12+ (dynamic color).
+> **Min SDK 24** — UPnPCast library requirement; best UX on Android 12+ (dynamic color).
+
+## ✅ Build Status - SUCCESSFULLY BUILDING!
+
+**🎉 ALL MAJOR ISSUES RESOLVED:**
+- ✅ **Circular dependency resolved** - NetworkCallbackUtil moved to core:network
+- ✅ **UPnP/mDNS libraries modernized** - UPnPCast + jMDNS replacing deprecated Cling
+- ✅ **ViewModels implemented** - HomeViewModel and LibraryViewModel with proper state management
+- ✅ **All module dependencies resolved** - No more compilation errors
+- ✅ **Material Icons and NanoHTTPD integration** - All dependencies working correctly
 
 ---
 

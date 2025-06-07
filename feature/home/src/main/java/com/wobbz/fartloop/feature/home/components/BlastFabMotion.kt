@@ -137,19 +137,15 @@ fun BlastFabMotion(
             ) + fadeOut(),
             modifier = Modifier.padding(16.dp)
         ) {
-            BlastFab(
+            MotionAwareFab(
                 blastStage = blastStage,
                 onClick = {
                     onFabClick()
-                    Timber.d("BlastFab clicked, triggering motion expansion")
+                    Timber.d("MotionAwareFab clicked, triggering motion expansion")
                 },
-                modifier = Modifier
-                    .size(fabSize)
-                    .graphicsLayer {
-                        scaleX = fabScale
-                        scaleY = fabScale
-                        alpha = fabAlpha
-                    }
+                scale = fabScale,
+                alpha = fabAlpha,
+                modifier = Modifier.size(fabSize)
             )
         }
 

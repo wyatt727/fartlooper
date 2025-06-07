@@ -52,8 +52,21 @@ dependencies {
     implementation(libs.timber)
     kapt(libs.hilt.compiler)
 
+    // MISSING DEPENDENCY FINDING: Material Icons Extended required for all device and UI icons
+    // Home module uses BugReport, CloudUpload, PlayCircle, Speaker, CastConnected, VolumeUp,
+    // Wifi, Tv, Router, QuestionMark, ExpandMore, EmojiEvents, TrendingUp, Speed, BarChart, HourglassTop
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // MISSING DEPENDENCY FINDING: Compose Foundation required for advanced UI components and layouts
+    implementation("androidx.compose.foundation:foundation:1.6.0")
+
+    // MISSING DEPENDENCY FINDING: ViewModel Compose for state management integration
+    // HomeScreen and components require ViewModel integration for proper state handling
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+
     implementation(project(":design"))
-    // implementation(project(":core:network"))  // Temporarily disabled for Team B tasks
+    implementation(project(":core:network"))
+    implementation(project(":core:media"))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

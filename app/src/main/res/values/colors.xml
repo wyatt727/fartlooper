@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        COLOR BRIDGE FINDING: These colors bridge XML themes with Compose theme colors
+        Values must match design/theme/Color.kt definitions for visual consistency
+        between Android View system and Compose components
+    -->
+
+    <!--
+        Primary brand colors - must match Compose FartRed and FartOrange
+        FINDING: Using exact hex values from design/theme/Color.kt
+    -->
+    <color name="fart_red">#FFF44336</color>
+    <color name="fart_orange">#FFFFAB91</color>
+
+    <!--
+        Basic colors for theme compatibility
+        FINDING: Standard Material colors for proper system integration
+    -->
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+
+    <!--
+        STATUS BAR FINDING: Transparent colors for edge-to-edge display
+        Modern Android apps should use transparent system bars with proper insets
+    -->
+    <color name="transparent">#00000000</color>
+
+    <!--
+        MATERIAL3 SURFACE COLORS: Light theme surface colors
+        These ensure proper contrast ratios and accessibility compliance
+    -->
+    <color name="surface_light">#FFFBFF</color>
+    <color name="on_surface_light">#201A1A</color>
+
+    <!--
+        MATERIAL3 SURFACE COLORS: Dark theme surface colors
+        FINDING: Dark theme colors improve battery life on OLED displays
+    -->
+    <color name="surface_dark">#201A1A</color>
+    <color name="on_surface_dark">#F0C0C7</color>
+</resources>

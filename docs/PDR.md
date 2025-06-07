@@ -60,11 +60,11 @@ It bundles its own HTTP micro-server, exhaustive multi-protocol discovery (SSDP 
 | FR-01 | Detect Wi-Fi connectivity and trigger auto-blast via rules | High |
 | FR-02 | Serve local MP3 or proxy remote stream over embedded HTTP | High |
 | FR-03 | Discover renderers using SSDP, mDNS and port scan list (§6.3) | High |
-| FR-04 | Send SetAVTransportURI → Play SOAP to each device | High |
+| FR-04 | Send UPnP control commands via UPnPCast to each device | High |
 | FR-05 | Parallel blasts with adjustable concurrency (default 3) | Med |
 | FR-06 | Visual rule builder (SSID regex, time, day, clip) | Med |
 | FR-07 | Hot-swap clip while service is running | Med |
-| FR-08 | Real-time metrics HUD (HTTP startup, discovery RTT, SOAP success) | Low |
+| FR-08 | Real-time metrics HUD (HTTP startup, discovery RTT, UPnP control success) | Low |
 | FR-09 | Foreground notification with progress & cancel | Low |
 | FR-10 | In-app help + log console share/export | Low |
 
@@ -78,9 +78,9 @@ It bundles its own HTTP micro-server, exhaustive multi-protocol discovery (SSDP 
 * **Concurrency** Kotlin Coroutines + Flow  
 * **Background** WorkManager 2.9  
 * **HTTP Server** NanoHTTPD 2.3.1  
-* **UPnP** Cling 2.1.2  
-* **mDNS** mdns-java 3.5.7  
-* **Min SDK** 21 **Target** 34  
+* **UPnP** UPnPCast 1.1.1 (⚠️ **NEVER use Cling 2.1.2** - End-of-Life, unavailable)  
+* **mDNS** jMDNS 3.5.8 (⚠️ **NEVER use mdns-java** - deprecated)  
+* **Min SDK** 24 **Target** 34  
 
 ### 6.2 Permissions  
 `INTERNET`, `ACCESS_NETWORK_STATE`, `CHANGE_WIFI_MULTICAST_STATE`, `FOREGROUND_SERVICE`.
@@ -126,7 +126,7 @@ Intent / WorkRequest
 │            BlastService   (Foreground, Hilt)                  │
 │ ──────────────────────────────────────────────────────────────│
 │ 1 Start HttpServerManager            4 pushClip()             │
-│ 2 DiscoveryBus.discoverAll() ─────▶ UpnpControlClient         │
+│ 2 DiscoveryBus.discoverAll() ─────▶ ModernUpnpControlClient   │
 │ 3 Flow<Device>                      ▲                         │
 └────────────────────────────────────────────────────────────────┘
 ▲      ▲                                    │SOAP over HTTP
@@ -149,7 +149,7 @@ Intent / WorkRequest
 | **:feature:library** | `LibraryScreen`, `ClipThumbnail`, `StorageUtil` | Pick local file / URL |
 | **:feature:rules** | `RuleBuilderScreen`, `RuleCardEditable`, `RuleDSL.kt` | Visual rule editor |
 | **:core:media** | `HttpServerManager`, `MediaSource`, `HotSwap` | Serve or proxy audio |
-| **:core:network** | `SsdpDiscoverer`, `MdnsDiscoverer`, `PortScanDiscoverer`, `UpnpControlClient`, `DiscoveryBus` | Discovery + SOAP |
+| **:core:network** | `UPnPCastDiscoverer`, `JmDNSDiscoverer`, `PortScanDiscoverer`, `ModernUpnpControlClient`, `DiscoveryBus` | Discovery + UPnP Control |
 | **:core:simulator** (dev flavor) | `SimulatedRendererService` | Local UPnP stub |
 | **:design-test-utils** | `ComposeTestHelpers`, `MockServerRule` | Shared test code |
 
@@ -160,9 +160,9 @@ Intent / WorkRequest
 1. **Connectivity** → `NetworkCallbackUtil` receives Wi-Fi ON.  
 2. `RuleEvaluator` loads rules from DataStore; if match → emits *Run!* intent.  
 3. `BlastService` starts in foreground, spins **NanoHTTPD** on free port.  
-4. `DiscoveryBus` concurrently merges three discoverers (SSDP, mDNS, port scan).  
-5. Each emitted `UpnpDevice` is piped to `UpnpControlClient.pushClip()` (max 3 parallel).  
-6. Metrics collected (HTTP ms, discover ms, SOAP ok/fail) stream to HUD & notification.  
+4. `DiscoveryBus` concurrently merges three discoverers (UPnPCast, jMDNS, port scan).  
+5. Each emitted `UpnpDevice` is piped to `ModernUpnpControlClient.pushClip()` (max 3 parallel).  
+6. Metrics collected (HTTP ms, discover ms, UPnP ok/fail) stream to HUD & notification.  
 7. Service stops, broadcasts final stats; UI animates chips green/red.
 
 ---

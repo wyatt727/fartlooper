@@ -133,7 +133,10 @@ class RuleBuilderViewModel @Inject constructor(
 
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save rule")
-                // TODO: Show error to user via UI state
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Failed to save rule: ${e.message}",
+                    showError = true
+                )
             }
         }
     }
@@ -210,7 +213,9 @@ data class RuleBuilderUiState(
     val timeCondition: TimeCondition? = null,
     val dayCondition: DayOfWeekCondition? = null,
     val blastAction: BlastAction = BlastAction(clipId = null, useDefaultClip = true),
-    val isValidRule: Boolean = false
+    val isValidRule: Boolean = false,
+    val errorMessage: String? = null,
+    val showError: Boolean = false
 ) {
     /**
      * Convert UI state to Rule domain model.

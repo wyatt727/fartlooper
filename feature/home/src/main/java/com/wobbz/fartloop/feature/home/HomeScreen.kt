@@ -86,8 +86,8 @@ fun HomeScreen(
         // This replaces the simple FAB with a coordinated motion system per Material Motion specs
         BlastMotionController(
             blastStage = uiState.blastStage,
-            metrics = uiState.blastMetrics,
-            devices = uiState.discoveredDevices,
+            metrics = uiState.metrics,
+            devices = uiState.devices,
             onStartBlast = onBlastClick,
             modifier = Modifier.align(Alignment.BottomEnd)
         )

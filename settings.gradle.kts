@@ -14,16 +14,27 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+
+        // UPNP LIBRARY RESOLUTION: Modern UPnP/mDNS library sources
+        // JitPack for UPnPCast - Modern Cling replacement
+        maven {
+            url = uri("https://jitpack.io")
+        }
+
+        // DM-UPnP is available on Maven Central, no additional repo needed
+        // fr.distrimind.oss.upnp.android:DM-UPnP-Android:1.5.6
+
+        // LEGACY: Original Cling dependencies (EOL, 4thline.org unreliable)
+        // Keeping for fallback but preferring modern alternatives
+        maven {
+            url = uri("http://4thline.org/m2")
+            isAllowInsecureProtocol = true
+        }
+
         // VENDOR COMPATIBILITY FINDING: Some vendor dependencies still require jcenter
         // This can be removed once vendor submodules are updated or replaced with Maven deps
         @Suppress("DEPRECATION")
         jcenter()
-        // CLING FINDING: Cling UPnP library uses 4thline custom Maven repository
-        // Required for org.fourthline.cling:cling-core:2.1.2 and cling-support
-        maven {
-            url = uri("http://4thline.org/m2")
-            isAllowInsecureProtocol = true // HTTP repository needed for Cling
-        }
     }
 }
 

@@ -54,7 +54,12 @@ data class SsidCondition(
 ) : RuleCondition {
 
     override fun matches(context: RuleEvaluationContext): Boolean {
-        val ssid = context.networkInfo.ssid ?: return false
+        // SSID CONDITION FINDING: Only WiFi networks have SSID property
+        // Must check network type first before accessing ssid property
+        val ssid = when (val networkInfo = context.networkInfo) {
+            is RuleEvaluationContext.NetworkInfo.WiFi -> networkInfo.ssid
+            else -> return false // Non-WiFi networks don't match SSID conditions
+        } ?: return false
 
         return if (isRegex) {
             try {

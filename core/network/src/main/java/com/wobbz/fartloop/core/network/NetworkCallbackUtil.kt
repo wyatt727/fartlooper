@@ -1,4 +1,4 @@
-package com.wobbz.fartloop
+package com.wobbz.fartloop.core.network
 
 import android.content.Context
 import android.content.Intent
@@ -25,6 +25,13 @@ import javax.inject.Singleton
 /**
  * NetworkCallbackUtil monitors Wi-Fi connectivity changes and triggers automated blasts
  * based on rules evaluation.
+ *
+ * CIRCULAR DEPENDENCY RESOLUTION: Moved from app module to core:network to break
+ * circular dependency between app and feature:rules modules. Rules module needs
+ * NetworkCallbackUtil and RuleEvaluator interfaces, but app module depends on rules.
+ *
+ * This placement in core:network is logical since network monitoring is core infrastructure
+ * that multiple modules need to access.
  *
  * Key behaviors observed during development:
  * - Android network callbacks can fire multiple times during connection establishment
@@ -256,14 +263,19 @@ class NetworkCallbackUtil @Inject constructor(
     /**
      * Trigger an automated blast by starting BlastService.
      * Uses the current media source from DataStore.
+     *
+     * BLAST SERVICE INTEGRATION: Uses fully qualified class name to avoid
+     * importing BlastService directly, which would create circular dependencies.
+     * The service is started via Intent using string-based class lookup.
      */
     private fun triggerAutomatedBlast() {
         Timber.i("Triggering automated blast based on rule evaluation")
 
         try {
-            val intent = Intent(context, BlastService::class.java).apply {
-                action = BlastService.ACTION_AUTO_BLAST
-                putExtra(BlastService.EXTRA_TRIGGER_REASON, "network_rule_match")
+            val intent = Intent().apply {
+                setClassName(context, "com.wobbz.fartloop.service.BlastService")
+                action = "com.wobbz.fartloop.ACTION_AUTO_BLAST"
+                putExtra("EXTRA_TRIGGER_REASON", "network_rule_match")
             }
 
             context.startForegroundService(intent)
@@ -366,11 +378,12 @@ class NetworkCallbackUtil @Inject constructor(
      */
     private fun sendBlastRecoveryIntent(recoveryAction: String, originalReason: String) {
         try {
-            val intent = Intent(context, BlastService::class.java).apply {
-                action = BlastService.ACTION_NETWORK_RECOVERY
-                putExtra(BlastService.EXTRA_RECOVERY_ACTION, recoveryAction)
-                putExtra(BlastService.EXTRA_RECOVERY_REASON, originalReason)
-                putExtra(BlastService.EXTRA_RECOVERY_ATTEMPT, networkRecoveryAttempts)
+            val intent = Intent().apply {
+                setClassName(context, "com.wobbz.fartloop.service.BlastService")
+                action = "com.wobbz.fartloop.ACTION_NETWORK_RECOVERY"
+                putExtra("EXTRA_RECOVERY_ACTION", recoveryAction)
+                putExtra("EXTRA_RECOVERY_REASON", originalReason)
+                putExtra("EXTRA_RECOVERY_ATTEMPT", networkRecoveryAttempts)
             }
 
             context.startService(intent)
@@ -429,7 +442,10 @@ class NetworkCallbackUtil @Inject constructor(
 
 /**
  * Rule evaluator interface for determining when to auto-blast.
- * This is a stub implementation until Team B completes the visual rule builder.
+ *
+ * CIRCULAR DEPENDENCY RESOLUTION: Moved from app module to core:network
+ * along with NetworkCallbackUtil to break circular dependency between
+ * app and feature:rules modules.
  */
 interface RuleEvaluator {
     /**
