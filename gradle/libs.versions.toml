@@ -5,13 +5,18 @@ composeBom = "2024.05.00"
 hilt = "2.48"
 nanohttpd = "2.3.1"
 cling = "2.1.2"
-mdnsjava = "3.5.7"
+jmdns = "3.5.8"
 work = "2.9.0"
 timber = "5.0.1"
 moshi = "1.15.0"
 accompanist = "0.35.0"
 detekt = "1.23.5"
 ktlint = "11.6.0"
+dependency-check = "8.4.3"
+mockito = "5.6.0"
+robolectric = "4.11.1"
+coroutines-test = "1.7.3"
+arch-core-testing = "2.2.0"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -34,7 +39,7 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 cling-core = { group = "org.fourthline.cling", name = "cling-core", version.ref = "cling" }
 cling-support = { group = "org.fourthline.cling", name = "cling-support", version.ref = "cling" }
-mdns-java = { group = "org.multicastdns", name = "mdns-java", version.ref = "mdnsjava" }
+jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshi" }
 moshi-adapters = { group = "com.squareup.moshi", name = "moshi-adapters", version.ref = "moshi" }
@@ -42,6 +47,11 @@ datastore-preferences = { group = "androidx.datastore", name = "datastore-prefer
 junit = { group = "junit", name = "junit", version = "4.13.2" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version = "1.1.5" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version = "3.5.1" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.1.0" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines-test" }
+arch-core-testing = { group = "androidx.arch.core", name = "core-testing", version.ref = "arch-core-testing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -50,4 +60,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
-ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" } 
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+dependency-check = { id = "org.owasp.dependencycheck", version.ref = "dependency-check" }

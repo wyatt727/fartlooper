@@ -11,6 +11,9 @@ Fart-Looper is a **single-process Android app** composed of clearly bounded Grad
 
 app
 ┆
+├─ src/main/
+│   ├─ assets/          ← Default media files (fart.mp3)
+│   └─ java/            ← Main application code
 ├─ design/              ← Material 3 theme + shared Compose atoms
 ├─ core/
 │   ├─ media/           ← StorageUtil · HttpServerManager · MediaSource

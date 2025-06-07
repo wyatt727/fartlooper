@@ -53,11 +53,11 @@ dependencies {
     kapt(libs.hilt.compiler)
 
     implementation(project(":design"))
-    implementation(project(":core:network"))
-    
+    // implementation(project(":core:network"))  // Temporarily disabled for Team B tasks
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
-} 
+}

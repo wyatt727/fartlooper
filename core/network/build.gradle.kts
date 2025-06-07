@@ -35,14 +35,14 @@ android {
 
 dependencies {
     implementation(libs.androidx.core)
-    implementation(libs.cling.core)
-    implementation(libs.cling.support)
-    implementation(libs.mdns.java)
+    implementation(project(":vendor:cling:core"))
+    implementation(project(":vendor:cling:support"))
+    implementation(project(":vendor:mdns"))
     implementation(libs.timber)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
-    
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-} 
+}

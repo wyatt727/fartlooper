@@ -81,10 +81,18 @@ dependencies {
     implementation(project(":feature:rules"))
 
     testImplementation(libs.junit)
+    testImplementation("org.mockito:mockito-core:5.6.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // ACCESSIBILITY TESTING FINDING: Espresso-Accessibility essential for a11y validation
+    // Automatically checks content descriptions, focus management, contrast ratios
+    androidTestImplementation("androidx.test.espresso:espresso-accessibility:3.5.1")
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
-} 
+}

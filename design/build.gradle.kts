@@ -39,12 +39,14 @@ android {
 
 dependencies {
     implementation(platform(libs.compose.bom))
+    implementation(libs.androidx.core)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.material3)
-    
+    implementation(libs.timber)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-} 
+}

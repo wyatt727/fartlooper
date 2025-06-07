@@ -14,7 +14,7 @@ _A playful, developer-focused “network-audio lab” that blasts any clip to ev
 |  | What it does | Why it’s cool |
 |--|--------------|---------------|
 | **One-tap Blast** | Starts an embedded HTTP server, discovers renderers (SSDP + mDNS + exhaustive port-scan) and sends `SetAVTransportURI → Play`. | Hear the clip on every speaker or TV within ~5-7 s. |
-| **Pick Any Clip** | Use the default `fart.mp3`, choose a local file (SAF picker) _or_ paste a stream URL. | Demo latency with your own sounds—including live radio. |
+| **Pick Any Clip** | Use the default `fart.mp3` (from assets), choose a local file (SAF picker) _or_ paste a stream URL. | Demo latency with your own sounds—including live radio. |
 | **Hot-Swap Media** | Change the clip while a blast is running—no restart. | Instantly prank-switch to an apology track. |
 | **Visual Rule Builder** | GUI for Wi-Fi SSID regex, day/time windows, and clip selection. | Automate blasts only when you get home after 8 p.m. |
 | **Live Metrics HUD** | Latency bar, success pie, per-device chips turning green/red. | Measure discovery vs. play bottlenecks. |

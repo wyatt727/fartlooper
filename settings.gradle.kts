@@ -27,9 +27,8 @@ include(
     ":feature:rules"
 )
 
-// Vendor submodules
-includeBuild("vendor/nanohttpd") {
-    dependencySubstitution {
-        substitute(module("org.nanohttpd:nanohttpd")).using(project(":nanohttpd"))
-    }
-} 
+// Vendor submodules - Team A integration
+include(":vendor:nanohttpd:core")
+include(":vendor:cling:core")
+include(":vendor:cling:support")
+include(":vendor:mdns")
