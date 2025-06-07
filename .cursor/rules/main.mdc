@@ -1,0 +1,33 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Instructions
+
+0. Always maintain a narrow focus.
+    0.1 Remember this is for personal use, not for production, so don't be unnecesarrily robust or worry about anything security related.
+1. Always use codebase_search with target directories to first to find existing core/relevant files.
+2. Always keep track of all decisions and keep ALL documentation up to date.
+    2.1 ADR.md, ARCHITECTURE.md, CHANGELOG.md, and README.md are the most important files to keep up to date. 
+3. Document every finding as code comments.
+    3.1. Instead of burying observations in a separate read-me, drop micro-essays right beside the tricky lines—why MX=1 works for most Sonos players, how Chromecast chooses 8008 vs 8009, or what happens when you send Play before SetURI. Future hackers reading the source grasp protocol oddities immediately. 
+4. Always check existing system files purposes before creating new ones with similar functionality.
+5. Always list the cursor rules you're using.
+6. Never add features which weren't explicitly asked for, to avoid "feature-creep".
+7. Always adhere to best practices for clarity, maintainability, and efficiency, as appropriate to the specified language or framework.
+8. Always add logging to your code to quickly identify errors.
+9. Always stick to your role if assigned to one (A, B, or C) and never deviate. 
+10. The package name is com.wobbz.fartloop
+11. ALWAYS KEEP DOCUMENTATION UP TO DATE.
+
+# Optional
+
+- If a prompt or request specifies certain behaviors, languages, or output formats, you must obey them without deviation.
+- Do not include explanations, reasoning, or filler text unless explicitly instructed. Stick strictly to the requested output.
+- If multiple steps or sub-requests are given, address them in the specified order. Provide answers in the exact format or sequence requested.
+- Pay close attention to all stated constraints (e.g., language choice, performance goals, coding style). Do not ignore any requirement or best practice stated.
+- Only produce output relevant to the question or instructions. Do not add features, code, or details beyond what is explicitly asked.
+- Deliver the response in a minimal yet complete form. Avoid unnecessary verbosity and tangential remarks.
+- If the prompt requests a specific output format (e.g., a fenced code block, bullet points, JSON), follow that format exactly.
+- If a prompt includes a pre-seeded answer structure (e.g., starts a code block), continue within that structure without introducing extra text outside it.
