@@ -25,4 +25,11 @@ include(
     ":feature:home",
     ":feature:library",
     ":feature:rules"
-) 
+)
+
+// Vendor submodules
+includeBuild("vendor/nanohttpd") {
+    dependencySubstitution {
+        substitute(module("org.nanohttpd:nanohttpd")).using(project(":nanohttpd"))
+    }
+} 

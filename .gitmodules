@@ -1,0 +1,9 @@
+[submodule "vendor/nanohttpd"]
+	path = vendor/nanohttpd
+	url = https://github.com/NanoHttpd/nanohttpd
+[submodule "vendor/cling"]
+	path = vendor/cling
+	url = https://github.com/4thline/cling
+[submodule "vendor/mdns"]
+	path = vendor/mdns
+	url = https://github.com/jmdns/jmdns

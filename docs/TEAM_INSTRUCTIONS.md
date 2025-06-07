@@ -9,16 +9,16 @@ Complete every item in **First Tasks** before sprint-starting the A / B / C list
 
 | # | Task | Outcome |
 |---|------|---------|
-| ⬜ **FT-1** Verify local toolchain<br>▪ Temurin JDK 17<br>▪ Android Studio Koala/Hedgehog (SDK 34)<br>▪ Git ≥ 2.40 | `java -version` → 17.\* `adb version` OK |
-| ⬜ **FT-2** Create root repo & global ignore | `git init fart-looper`<br>`echo '.idea/\nbuild/\nlocal.properties\n*.iml\nartifacts/' > .gitignore` |
-| ⬜ **FT-3** Lay down **directory structure** *(empty `README.md` in each to commit)* | ```text fart-looper/   ├── gradle/ (wrapper)   ├── app/   ├── design/   ├── core/ │   ├── media/ │   ├── network/ │   └── simulator/   └── feature/       ├── home/       ├── library/       └── rules/ ``` |
-| ⬜ **FT-4** Add Gradle wrapper (`gradlew`, `gradlew.bat`, `/gradle/wrapper/gradle-wrapper.properties`) | Wrapper files at repo root |
-| ⬜ **FT-5** Copy **settings.gradle.kts** with module includes | `include(":app", ":design", ":core:media", ":core:network", ":core:simulator", ":feature:home", ":feature:library", ":feature:rules")` |
-| ⬜ **FT-6** Commit **version catalog** `gradle/libs.versions.toml` (locked libs) | Catalog file checked-in |
-| ⬜ **FT-7** Scaffold minimal `build.gradle.kts` for each module<br>• `plugins { kotlin("android") }` for libs<br>• `com.android.application` for `:app` | All modules sync in Android Studio |
-| ⬜ **FT-8** Add submodules **NanoHTTPD, Cling, mdns-java** under `/vendor`; record SHAs | `git submodule add …` |
-| ⬜ **FT-9** CI stub: `.github/workflows/ci.yml` running `./gradlew help` | Green pipeline proves wrapper + catalog |
-| ⬜ **FT-10** Push to remote (GitHub/GitLab) so each team can branch | Origin repo online |
+| ✅ **FT-1** Verify local toolchain<br>▪ Temurin JDK 17<br>▪ Android Studio Koala/Hedgehog (SDK 34)<br>▪ Git ≥ 2.40 | `java -version` → 17.\* `adb version` OK |
+| ✅ **FT-2** Create root repo & global ignore | `git init fart-looper`<br>`echo '.idea/\nbuild/\nlocal.properties\n*.iml\nartifacts/' > .gitignore` |
+| ✅ **FT-3** Lay down **directory structure** *(empty `README.md` in each to commit)* | ```fart-looper/   ├── gradle/ (wrapper)   ├── app/   ├── design/   ├── core/ │   ├── media/ │   ├── network/ │   └── simulator/   └── feature/       ├── home/       ├── library/       └── rules/ ``` |
+| ✅ **FT-4** Add Gradle wrapper (`gradlew`, `gradlew.bat`, `/gradle/wrapper/gradle-wrapper.properties`) | Wrapper files at repo root |
+| ✅ **FT-5** Copy **settings.gradle.kts** with module includes | `include(":app", ":design", ":core:media", ":core:network", ":core:simulator", ":feature:home", ":feature:library", ":feature:rules")` |
+| ✅ **FT-6** Commit **version catalog** `gradle/libs.versions.toml` (locked libs) | Catalog file checked-in |
+| ✅ **FT-7** Scaffold minimal `build.gradle.kts` for each module<br>• `plugins { kotlin("android") }` for libs<br>• `com.android.application` for `:app` | All modules sync in Android Studio |
+| ⚠️ **FT-8** Add submodules **NanoHTTPD, Cling, mdns-java** under `/vendor`; record SHAs | Using Maven Central versions instead |
+| ✅ **FT-9** CI stub: `.github/workflows/ci.yml` running `./gradlew help` | Green pipeline proves wrapper + catalog |
+| ✅ **FT-10** Push to remote (GitHub/GitLab) so each team can branch | Origin repo online |
 
 *After **FT-10** every module opens in Android Studio and compiles (even though empty).  
 Teams A, B, C may now parallelise.*
