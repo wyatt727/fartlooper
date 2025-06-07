@@ -385,6 +385,15 @@ Security & Performance
 - Custom GitHub Actions for Fart-Looper-specific testing scenarios
 - Advanced build optimization based on accumulated performance metrics
 
+### Local Build Resolution Summary
+**VENDOR DEPENDENCY FINDING:** Successfully resolved local build conflicts by:
+1. Switching from vendor submodules to Maven Central dependencies
+2. Adding 4thline.org Maven repository for Cling UPnP libraries
+3. Configuring PREFER_SETTINGS repository mode to handle vendor repo conflicts
+4. Disabling SARIF reporting to avoid detekt/ktlint dependency conflicts
+
+**CI/CD VALIDATION STATUS:** Local build foundation established. CI pipeline validation in progress to verify APK generation and upload functionality works as documented.
+
 ---
 
 ## ADR-002: Material Motion System & FAB Transformation (Team B)

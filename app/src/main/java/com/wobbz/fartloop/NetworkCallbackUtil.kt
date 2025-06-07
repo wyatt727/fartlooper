@@ -52,7 +52,7 @@ import javax.inject.Singleton
 @Singleton
 class NetworkCallbackUtil @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val ruleEvaluator: RuleEvaluator
+    private val ruleEvaluator: RuleEvaluator,
 ) : DefaultLifecycleObserver {
 
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -160,7 +160,8 @@ class NetworkCallbackUtil @Inject constructor(
                     // NETWORK RECOVERY: Check if network signature changed during blast
                     val newNetworkSignature = generateNetworkSignature(capabilities)
                     if (isBlastActive && lastKnownNetworkSignature != null &&
-                        lastKnownNetworkSignature != newNetworkSignature) {
+                        lastKnownNetworkSignature != newNetworkSignature
+                    ) {
                         Timber.w("Network signature changed during blast - triggering recovery")
                         handleBlastNetworkInterruption("network_change", newNetworkSignature)
                     } else {
@@ -223,7 +224,7 @@ class NetworkCallbackUtil @Inject constructor(
             // Android wraps SSID in quotes, remove them
             when {
                 ssid == null -> null
-                ssid == "<unknown ssid>" -> "unknown"  // No location permission
+                ssid == "<unknown ssid>" -> "unknown" // No location permission
                 ssid.startsWith("\"") && ssid.endsWith("\"") -> ssid.substring(1, ssid.length - 1)
                 else -> ssid
             }
@@ -266,7 +267,6 @@ class NetworkCallbackUtil @Inject constructor(
             }
 
             context.startForegroundService(intent)
-
         } catch (e: Exception) {
             Timber.e(e, "Failed to start automated blast service")
         }
@@ -333,7 +333,9 @@ class NetworkCallbackUtil @Inject constructor(
         val retryDelayMs = 3000L * (1 shl (networkRecoveryAttempts - 1))
         lastRecoveryAttemptMs = currentTime
 
-        Timber.w("Network interruption during blast (reason: $reason, attempt: $networkRecoveryAttempts/$maxRecoveryAttempts) - retrying in ${retryDelayMs}ms")
+        Timber.w(
+            "Network interruption during blast (reason: $reason, attempt: $networkRecoveryAttempts/$maxRecoveryAttempts) - retrying in ${retryDelayMs}ms",
+        )
 
         networkScope.launch {
             delay(retryDelayMs)
@@ -372,7 +374,6 @@ class NetworkCallbackUtil @Inject constructor(
             }
 
             context.startService(intent)
-
         } catch (e: Exception) {
             Timber.e(e, "Failed to send blast recovery intent")
         }

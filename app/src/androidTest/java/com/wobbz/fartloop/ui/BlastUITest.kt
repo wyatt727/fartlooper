@@ -51,7 +51,7 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
-                status = DeviceStatus.DISCOVERED
+                status = DeviceStatus.DISCOVERED,
             ),
             DiscoveredDevice(
                 id = "test-device-2",
@@ -59,8 +59,8 @@ class BlastUITest {
                 type = DeviceType.CHROMECAST,
                 ipAddress = "192.168.1.101",
                 port = 8008,
-                status = DeviceStatus.DISCOVERED
-            )
+                status = DeviceStatus.DISCOVERED,
+            ),
         )
 
         var currentBlastStage = BlastStage.IDLE
@@ -74,15 +74,15 @@ class BlastUITest {
                         blastStage = currentBlastStage,
                         metrics = BlastMetrics(
                             totalDevicesFound = initialDevices.size,
-                            isRunning = currentBlastStage != BlastStage.IDLE
-                        )
+                            isRunning = currentBlastStage != BlastStage.IDLE,
+                        ),
                     ),
                     onBlastClick = {
                         blastClickCount++
                         currentBlastStage = BlastStage.HTTP_STARTING
                     },
                     onToggleMetrics = { },
-                    debugLogs = emptyList()
+                    debugLogs = emptyList(),
                 )
             }
         }
@@ -110,7 +110,7 @@ class BlastUITest {
 
         // Verify metrics display shows device count
         composeTestRule
-            .onNodeWithText("2")  // Device count in metrics
+            .onNodeWithText("2") // Device count in metrics
             .assertExists()
     }
 
@@ -132,10 +132,10 @@ class BlastUITest {
             conditions = listOf(
                 SsidCondition(pattern = "home.*"),
                 TimeCondition(startHour = 18, endHour = 22),
-                DayOfWeekCondition(days = setOf(1, 2, 3, 4, 5)) // Weekdays
+                DayOfWeekCondition(days = setOf(1, 2, 3, 4, 5)), // Weekdays
             ),
             clipSource = "fart.mp3",
-            isEnabled = true
+            isEnabled = true,
         )
 
         // RULE VALIDATION FINDING: Comprehensive rule validation prevents runtime failures
@@ -165,8 +165,8 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
-                status = DeviceStatus.BLASTING
-            )
+                status = DeviceStatus.BLASTING,
+            ),
         )
 
         composeTestRule.setContent {
@@ -178,8 +178,8 @@ class BlastUITest {
                         metrics = BlastMetrics(
                             totalDevicesFound = 1,
                             connectionsAttempted = 1,
-                            isRunning = true
-                        )
+                            isRunning = true,
+                        ),
                     ),
                     onBlastClick = { /* Blast already active */ },
                     onToggleMetrics = { },
@@ -187,9 +187,9 @@ class BlastUITest {
                         LogEntry(
                             level = LogLevel.INFO,
                             tag = "HotSwap",
-                            message = "Media source: $currentMediaSource"
-                        )
-                    )
+                            message = "Media source: $currentMediaSource",
+                        ),
+                    ),
                 )
             }
         }
@@ -229,8 +229,8 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
-                status = DeviceStatus.SUCCESS
-            )
+                status = DeviceStatus.SUCCESS,
+            ),
         )
 
         composeTestRule.setContent {
@@ -239,11 +239,11 @@ class BlastUITest {
                     uiState = HomeUiState(
                         devices = testDevices,
                         blastStage = BlastStage.IDLE,
-                        metrics = BlastMetrics()
+                        metrics = BlastMetrics(),
                     ),
                     onBlastClick = { },
                     onToggleMetrics = { },
-                    debugLogs = emptyList()
+                    debugLogs = emptyList(),
                 )
             }
         }
@@ -279,8 +279,8 @@ class BlastUITest {
                 type = DeviceType.SAMSUNG,
                 ipAddress = "192.168.1.102",
                 port = 8001,
-                status = DeviceStatus.FAILED
-            )
+                status = DeviceStatus.FAILED,
+            ),
         )
 
         composeTestRule.setContent {
@@ -293,9 +293,9 @@ class BlastUITest {
                             totalDevicesFound = 1,
                             connectionsAttempted = 1,
                             failedBlasts = 1,
-                            successfulBlasts = 0
+                            successfulBlasts = 0,
                         ),
-                        errorMessage = "Failed to connect to Samsung TV: Connection timeout"
+                        errorMessage = "Failed to connect to Samsung TV: Connection timeout",
                     ),
                     onBlastClick = { },
                     onToggleMetrics = { },
@@ -303,9 +303,9 @@ class BlastUITest {
                         LogEntry(
                             level = LogLevel.ERROR,
                             tag = "BlastService",
-                            message = "Connection timeout: Samsung TV"
-                        )
-                    )
+                            message = "Connection timeout: Samsung TV",
+                        ),
+                    ),
                 )
             }
         }
@@ -341,7 +341,7 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
-                status = DeviceStatus.SUCCESS
+                status = DeviceStatus.SUCCESS,
             ),
             DiscoveredDevice(
                 id = "interactive-2",
@@ -349,8 +349,8 @@ class BlastUITest {
                 type = DeviceType.CHROMECAST,
                 ipAddress = "192.168.1.101",
                 port = 8008,
-                status = DeviceStatus.FAILED
-            )
+                status = DeviceStatus.FAILED,
+            ),
         )
 
         var deviceClickCount = 0
@@ -361,7 +361,7 @@ class BlastUITest {
                     uiState = HomeUiState(
                         devices = interactiveDevices,
                         blastStage = BlastStage.IDLE,
-                        metrics = BlastMetrics()
+                        metrics = BlastMetrics(),
                     ),
                     onBlastClick = { },
                     onDeviceClick = { device ->
@@ -369,7 +369,7 @@ class BlastUITest {
                         println("Device clicked: ${device.name}")
                     },
                     onToggleMetrics = { },
-                    debugLogs = emptyList()
+                    debugLogs = emptyList(),
                 )
             }
         }
@@ -407,22 +407,22 @@ class BlastUITest {
                         metrics = BlastMetrics(
                             httpStartupMs = 35L,
                             discoveryTimeMs = 2150L,
-                            totalDevicesFound = 0
+                            totalDevicesFound = 0,
                         ),
-                        isMetricsExpanded = metricsExpanded
+                        isMetricsExpanded = metricsExpanded,
                     ),
                     onBlastClick = { },
                     onToggleMetrics = {
                         metricsExpanded = !metricsExpanded
                     },
-                    debugLogs = emptyList()
+                    debugLogs = emptyList(),
                 )
             }
         }
 
         // Verify metrics display and expansion capability
         composeTestRule
-            .onNodeWithText("35")  // HTTP startup time
+            .onNodeWithText("35") // HTTP startup time
             .assertExists()
 
         // METRICS EXPANSION TESTING FINDING: Toggle interactions need clear state feedback

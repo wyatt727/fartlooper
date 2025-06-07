@@ -1,11 +1,7 @@
 package com.wobbz.fartloop.navigation
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -13,10 +9,9 @@ import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -24,14 +19,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.hilt.navigation.compose.hiltViewModel
+import com.wobbz.fartloop.SettingsScreen
 import com.wobbz.fartloop.design.theme.FartLooperTheme
 import com.wobbz.fartloop.feature.home.HomeScreen
 import com.wobbz.fartloop.feature.home.model.HomeViewModel
 import com.wobbz.fartloop.feature.library.LibraryScreen
 import com.wobbz.fartloop.feature.library.model.LibraryViewModel
 import com.wobbz.fartloop.feature.rules.RuleBuilderScreen
-import com.wobbz.fartloop.SettingsScreen
 import timber.log.Timber
 
 /**
@@ -50,13 +44,13 @@ fun FartLooperNavigation() {
         Scaffold(
             bottomBar = {
                 FartLooperBottomBar(navController = navController)
-            }
+            },
         ) { innerPadding ->
             FartLooperNavHost(
                 navController = navController,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    .padding(innerPadding),
             )
         }
     }
@@ -70,13 +64,13 @@ fun FartLooperNavigation() {
  */
 @Composable
 private fun FartLooperBottomBar(
-    navController: NavHostController
+    navController: NavHostController,
 ) {
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.Library,
         BottomNavItem.Rules,
-        BottomNavItem.Settings
+        BottomNavItem.Settings,
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -88,7 +82,7 @@ private fun FartLooperBottomBar(
                 icon = {
                     Icon(
                         imageVector = item.icon,
-                        contentDescription = item.title
+                        contentDescription = item.title,
                     )
                 },
                 label = { Text(item.title) },
@@ -108,7 +102,7 @@ private fun FartLooperBottomBar(
                         // Restore state when reselecting a previously selected item
                         restoreState = true
                     }
-                }
+                },
             )
         }
     }
@@ -124,14 +118,14 @@ private fun FartLooperBottomBar(
 @Composable
 private fun FartLooperNavHost(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     NavHost(
         navController = navController,
         startDestination = BottomNavItem.Home.route,
-        modifier = modifier
+        modifier = modifier,
     ) {
-                composable(BottomNavItem.Home.route) {
+        composable(BottomNavItem.Home.route) {
             HomeScreenRoute()
         }
 
@@ -145,7 +139,7 @@ private fun FartLooperNavHost(
                     // For now, rules screen doesn't have back navigation
                     // Future: could navigate to rules list first, then builder
                     Timber.d("Rule builder back navigation")
-                }
+                },
             )
         }
 
@@ -164,34 +158,32 @@ private fun FartLooperNavHost(
 sealed class BottomNavItem(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val icon: ImageVector,
 ) {
     object Home : BottomNavItem(
         route = "home",
         title = "Home",
-        icon = Icons.Default.Home
+        icon = Icons.Default.Home,
     )
 
     object Library : BottomNavItem(
         route = "library",
         title = "Library",
-        icon = Icons.Default.LibraryMusic
+        icon = Icons.Default.LibraryMusic,
     )
 
     object Rules : BottomNavItem(
         route = "rules",
         title = "Rules",
-        icon = Icons.Default.Rule
+        icon = Icons.Default.Rule,
     )
 
     object Settings : BottomNavItem(
         route = "settings",
         title = "Settings",
-        icon = Icons.Default.Settings
+        icon = Icons.Default.Settings,
     )
 }
-
-
 
 /**
  * Home screen route wrapper that injects ViewModel and handles state management.
@@ -208,7 +200,7 @@ private fun HomeScreenRoute() {
         uiState = uiState,
         onBlastClick = viewModel::startBlast,
         onDeviceClick = viewModel::onDeviceSelected,
-        onToggleMetrics = viewModel::toggleMetricsExpansion
+        onToggleMetrics = viewModel::toggleMetricsExpansion,
     )
 }
 
@@ -227,6 +219,6 @@ private fun LibraryScreenRoute() {
         onFilePickerResult = viewModel::handleFilePicked,
         onUrlValidated = viewModel::validateAndAddUrl,
         onShowUrlDialog = viewModel::showUrlDialog,
-        onDismissUrlDialog = viewModel::dismissUrlDialog
+        onDismissUrlDialog = viewModel::dismissUrlDialog,
     )
 }

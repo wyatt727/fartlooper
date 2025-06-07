@@ -45,7 +45,7 @@ class BlastMetrics @Inject constructor() {
         if (httpStartTime > 0) {
             val duration = System.currentTimeMillis() - httpStartTime
             _currentMetrics.value = _currentMetrics.value.copy(
-                httpStartupMs = duration.toInt()
+                httpStartupMs = duration.toInt(),
             )
         }
     }
@@ -65,7 +65,7 @@ class BlastMetrics @Inject constructor() {
             val duration = System.currentTimeMillis() - discoveryStartTime
             _currentMetrics.value = _currentMetrics.value.copy(
                 discoveryDurationMs = duration.toInt(),
-                devicesDiscovered = devicesFound
+                devicesDiscovered = devicesFound,
             )
         }
     }
@@ -84,7 +84,7 @@ class BlastMetrics @Inject constructor() {
         val current = _currentMetrics.value
         _currentMetrics.value = current.copy(
             successfulDevices = current.successfulDevices + 1,
-            deviceResults = current.deviceResults + (deviceName to DeviceResult.Success(durationMs))
+            deviceResults = current.deviceResults + (deviceName to DeviceResult.Success(durationMs)),
         )
     }
 
@@ -95,7 +95,7 @@ class BlastMetrics @Inject constructor() {
         val current = _currentMetrics.value
         _currentMetrics.value = current.copy(
             failedDevices = current.failedDevices + 1,
-            deviceResults = current.deviceResults + (deviceName to DeviceResult.Failure(error))
+            deviceResults = current.deviceResults + (deviceName to DeviceResult.Failure(error)),
         )
     }
 
@@ -107,7 +107,7 @@ class BlastMetrics @Inject constructor() {
             val duration = System.currentTimeMillis() - blastStartTime
             _currentMetrics.value = _currentMetrics.value.copy(
                 totalBlastDurationMs = duration.toInt(),
-                isComplete = true
+                isComplete = true,
             )
         }
     }
@@ -153,12 +153,14 @@ data class MetricsSnapshot(
     val successfulDevices: Int = 0,
     val failedDevices: Int = 0,
     val deviceResults: Map<String, DeviceResult> = emptyMap(),
-    val isComplete: Boolean = false
+    val isComplete: Boolean = false,
 ) {
     val totalDevicesTargeted: Int get() = successfulDevices + failedDevices
     val successRate: Float get() = if (totalDevicesTargeted > 0) {
         (successfulDevices.toFloat() / totalDevicesTargeted.toFloat()) * 100f
-    } else 0f
+    } else {
+        0f
+    }
 }
 
 /**
@@ -177,5 +179,5 @@ enum class BlastPhase {
     HTTP_STARTING,
     DISCOVERING,
     BLASTING,
-    COMPLETE
+    COMPLETE,
 }

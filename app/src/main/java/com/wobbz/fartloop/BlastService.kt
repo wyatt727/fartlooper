@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -21,7 +20,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -43,9 +41,13 @@ import javax.inject.Inject
 class BlastService : LifecycleService() {
 
     @Inject lateinit var httpServerManager: HttpServerManager
+
     @Inject lateinit var storageUtil: StorageUtil
+
     @Inject lateinit var discoveryBus: DiscoveryBus
+
     @Inject lateinit var upnpControlClient: UpnpControlClient
+
     @Inject lateinit var blastMetrics: BlastMetrics
 
     private var notificationManager: NotificationManager? = null
@@ -68,7 +70,7 @@ class BlastService : LifecycleService() {
         fun startBlast(
             context: Context,
             discoveryTimeoutMs: Long = 4000,
-            concurrency: Int = 3
+            concurrency: Int = 3,
         ) {
             val intent = Intent(context, BlastService::class.java).apply {
                 action = ACTION_START_BLAST
@@ -125,7 +127,7 @@ class BlastService : LifecycleService() {
             }
         }
 
-        return START_REDELIVER_INTENT  // Restart if killed
+        return START_REDELIVER_INTENT // Restart if killed
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -171,7 +173,6 @@ class BlastService : LifecycleService() {
 
                 // Stage 4: Complete
                 completeBlast()
-
             } catch (e: Exception) {
                 Timber.e(e, "Blast operation failed")
                 handleBlastError(e)
@@ -306,7 +307,6 @@ class BlastService : LifecycleService() {
                 blastMetrics.recordDeviceFailure(device.friendlyName, error)
                 Timber.w("❌ Failed: ${device.friendlyName} - $error")
             }
-
         } catch (e: Exception) {
             val duration = (System.currentTimeMillis() - startTime).toInt()
             blastMetrics.recordDeviceFailure(device.friendlyName, e.message ?: "Exception")
@@ -329,13 +329,15 @@ class BlastService : LifecycleService() {
         updateNotification(summary, BlastPhase.COMPLETE)
 
         Timber.i(summary)
-        Timber.i("Metrics: HTTP ${metrics.httpStartupMs}ms, Discovery ${metrics.discoveryDurationMs}ms, Total ${metrics.totalBlastDurationMs}ms")
+        Timber.i(
+            "Metrics: HTTP ${metrics.httpStartupMs}ms, Discovery ${metrics.discoveryDurationMs}ms, Total ${metrics.totalBlastDurationMs}ms",
+        )
 
         // Broadcast final results
         broadcastBlastComplete(metrics)
 
         // Stop HTTP server and service after a delay
-        kotlinx.coroutines.delay(3000)  // Show final notification for 3 seconds
+        kotlinx.coroutines.delay(3000) // Show final notification for 3 seconds
 
         httpServerManager.stopServer()
         isBlastInProgress = false
@@ -367,7 +369,7 @@ class BlastService : LifecycleService() {
 
         isBlastInProgress = false
 
-        kotlinx.coroutines.delay(3000)  // Show error for 3 seconds
+        kotlinx.coroutines.delay(3000) // Show error for 3 seconds
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -399,8 +401,10 @@ class BlastService : LifecycleService() {
     private fun createNotification(message: String, phase: BlastPhase): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         val icon = when (phase) {
@@ -417,7 +421,7 @@ class BlastService : LifecycleService() {
             .setSmallIcon(icon)
             .setContentIntent(pendingIntent)
             .setOngoing(phase != BlastPhase.COMPLETE)
-            .setPriority(NotificationCompat.PRIORITY_LOW)  // Low importance to avoid heads-up
+            .setPriority(NotificationCompat.PRIORITY_LOW) // Low importance to avoid heads-up
             .build()
     }
 
@@ -429,7 +433,7 @@ class BlastService : LifecycleService() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Blast Operations",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_LOW,
             ).apply {
                 description = "Shows progress of media blast operations"
                 setShowBadge(false)

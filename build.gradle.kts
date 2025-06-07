@@ -65,11 +65,11 @@ subprojects {
         // REPORTING FINDING: Multiple report formats support different CI/CD integrations
         // PLAIN: Human-readable console output for developer experience
         // CHECKSTYLE: Jenkins/GitHub Actions integration for inline PR comments
-        // SARIF: GitHub Security tab integration for centralized violation tracking
+        // SARIF: Disabled due to dependency conflict with detekt sarif4k
         reporters {
             reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
             reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
-            reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.SARIF)
+            // reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.SARIF)
         }
     }
 

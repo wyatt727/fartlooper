@@ -189,13 +189,13 @@ class StubRuleEvaluatorTest {
             NetworkCallbackUtil.NetworkInfo.WiFi("Home"),
             NetworkCallbackUtil.NetworkInfo.WiFi("Office"),
             NetworkCallbackUtil.NetworkInfo.Mobile,
-            NetworkCallbackUtil.NetworkInfo.Disconnected
+            NetworkCallbackUtil.NetworkInfo.Disconnected,
         )
 
         networks.forEach { network ->
             assertFalse(
                 stubRuleEvaluator.shouldAutoBlast(network),
-                "Stub should return false for $network"
+                "Stub should return false for $network",
             )
         }
     }

@@ -3,7 +3,6 @@ package com.wobbz.fartloop
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,16 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -36,14 +32,14 @@ import javax.inject.Inject
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         item {
             // Screen header
@@ -51,7 +47,7 @@ fun SettingsScreen(
                 text = "Settings",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
@@ -60,7 +56,7 @@ fun SettingsScreen(
             SettingsSection(
                 title = "Blast Performance",
                 icon = Icons.Default.Speed,
-                description = "Configure discovery and playback timing"
+                description = "Configure discovery and playback timing",
             ) {
                 // Discovery timeout
                 SettingSliderItem(
@@ -70,7 +66,7 @@ fun SettingsScreen(
                     valueRange = 2f..10f,
                     steps = 7,
                     onValueChange = { viewModel.updateDiscoveryTimeout(it.toInt()) },
-                    valueFormatter = { "${it.toInt()}s" }
+                    valueFormatter = { "${it.toInt()}s" },
                 )
 
                 // Concurrency
@@ -81,7 +77,7 @@ fun SettingsScreen(
                     valueRange = 1f..8f,
                     steps = 6,
                     onValueChange = { viewModel.updateConcurrency(it.toInt()) },
-                    valueFormatter = { "${it.toInt()} devices" }
+                    valueFormatter = { "${it.toInt()} devices" },
                 )
 
                 // SOAP timeout
@@ -92,7 +88,7 @@ fun SettingsScreen(
                     valueRange = 5f..30f,
                     steps = 24,
                     onValueChange = { viewModel.updateSoapTimeout(it.toInt()) },
-                    valueFormatter = { "${it.toInt()}s" }
+                    valueFormatter = { "${it.toInt()}s" },
                 )
             }
         }
@@ -102,7 +98,7 @@ fun SettingsScreen(
             SettingsSection(
                 title = "Cache & Storage",
                 icon = Icons.Default.Storage,
-                description = "Manage local storage and cache behavior"
+                description = "Manage local storage and cache behavior",
             ) {
                 // Cache TTL
                 SettingSliderItem(
@@ -112,7 +108,7 @@ fun SettingsScreen(
                     valueRange = 1f..72f,
                     steps = 70,
                     onValueChange = { viewModel.updateCacheTtl(it.toInt()) },
-                    valueFormatter = { "${it.toInt()}h" }
+                    valueFormatter = { "${it.toInt()}h" },
                 )
 
                 // Auto-cleanup toggle
@@ -120,14 +116,14 @@ fun SettingsScreen(
                     title = "Auto-cleanup Cache",
                     subtitle = "Automatically remove old cache files",
                     checked = uiState.autoCleanupCache,
-                    onCheckedChange = viewModel::updateAutoCleanupCache
+                    onCheckedChange = viewModel::updateAutoCleanupCache,
                 )
 
                 // Cache size display
                 SettingInfoItem(
                     title = "Current Cache Size",
                     value = formatFileSize(uiState.currentCacheSizeBytes),
-                    icon = Icons.Default.FolderOpen
+                    icon = Icons.Default.FolderOpen,
                 )
             }
         }
@@ -137,14 +133,14 @@ fun SettingsScreen(
             SettingsSection(
                 title = "Device Discovery",
                 icon = Icons.Default.Search,
-                description = "Configure how devices are found"
+                description = "Configure how devices are found",
             ) {
                 // Port scan toggle
                 SettingSwitchItem(
                     title = "Aggressive Port Scan",
                     subtitle = "Scan 100+ ports for hidden devices (slower)",
                     checked = uiState.enablePortScan,
-                    onCheckedChange = viewModel::updatePortScanEnabled
+                    onCheckedChange = viewModel::updatePortScanEnabled,
                 )
 
                 // mDNS toggle
@@ -152,7 +148,7 @@ fun SettingsScreen(
                     title = "mDNS Discovery",
                     subtitle = "Find Chromecast and AirPlay devices",
                     checked = uiState.enableMdns,
-                    onCheckedChange = viewModel::updateMdnsEnabled
+                    onCheckedChange = viewModel::updateMdnsEnabled,
                 )
 
                 // SSDP toggle
@@ -160,7 +156,7 @@ fun SettingsScreen(
                     title = "SSDP Discovery",
                     subtitle = "Find UPnP and DLNA devices",
                     checked = uiState.enableSsdp,
-                    onCheckedChange = viewModel::updateSsdpEnabled
+                    onCheckedChange = viewModel::updateSsdpEnabled,
                 )
             }
         }
@@ -170,14 +166,14 @@ fun SettingsScreen(
             SettingsSection(
                 title = "Advanced",
                 icon = Icons.Default.Engineering,
-                description = "Developer and debugging options"
+                description = "Developer and debugging options",
             ) {
                 // Debug logging
                 SettingSwitchItem(
                     title = "Debug Logging",
                     subtitle = "Enable verbose logs (affects performance)",
                     checked = uiState.enableDebugLogging,
-                    onCheckedChange = viewModel::updateDebugLogging
+                    onCheckedChange = viewModel::updateDebugLogging,
                 )
 
                 // Metrics collection
@@ -185,7 +181,7 @@ fun SettingsScreen(
                     title = "Collect Metrics",
                     subtitle = "Track performance for optimization",
                     checked = uiState.enableMetricsCollection,
-                    onCheckedChange = viewModel::updateMetricsCollection
+                    onCheckedChange = viewModel::updateMetricsCollection,
                 )
 
                 // Reset settings
@@ -193,7 +189,7 @@ fun SettingsScreen(
                     title = "Reset to Defaults",
                     subtitle = "Restore all settings to factory defaults",
                     icon = Icons.Default.RestartAlt,
-                    onClick = viewModel::resetToDefaults
+                    onClick = viewModel::resetToDefaults,
                 )
             }
         }
@@ -208,39 +204,39 @@ private fun SettingsSection(
     title: String,
     icon: ImageVector,
     description: String,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Section header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
                 )
                 Column {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
                 }
             }
@@ -265,24 +261,24 @@ private fun SettingSliderItem(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
     onValueChange: (Float) -> Unit,
-    valueFormatter: (Float) -> String
+    valueFormatter: (Float) -> String,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -290,7 +286,7 @@ private fun SettingSliderItem(
                 text = valueFormatter(value),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
 
@@ -299,7 +295,7 @@ private fun SettingSliderItem(
             onValueChange = onValueChange,
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -312,7 +308,7 @@ private fun SettingSwitchItem(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -320,27 +316,27 @@ private fun SettingSwitchItem(
             .selectable(
                 selected = checked,
                 onClick = { onCheckedChange(!checked) },
-                role = Role.Switch
+                role = Role.Switch,
             ),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
         )
     }
 }
@@ -352,34 +348,34 @@ private fun SettingSwitchItem(
 private fun SettingInfoItem(
     title: String,
     value: String,
-    icon: ImageVector
+    icon: ImageVector,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
         Text(
             text = value,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -392,28 +388,28 @@ private fun SettingActionItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null
+                contentDescription = null,
             )
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.labelLarge
+                    style = MaterialTheme.typography.labelLarge,
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
@@ -538,5 +534,5 @@ data class SettingsUiState(
 
     // Advanced settings
     val enableDebugLogging: Boolean = false,
-    val enableMetricsCollection: Boolean = true
+    val enableMetricsCollection: Boolean = true,
 )

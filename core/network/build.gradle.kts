@@ -35,9 +35,11 @@ android {
 
 dependencies {
     implementation(libs.androidx.core)
-    implementation(project(":vendor:cling:core"))
-    implementation(project(":vendor:cling:support"))
-    implementation(project(":vendor:mdns"))
+    // VENDOR DEPENDENCY FINDING: Use Maven Central dependencies instead of submodules
+    // Cling and mDNS libraries available on Maven Central with better compatibility
+    implementation(libs.cling.core)
+    implementation(libs.cling.support)
+    implementation(libs.jmdns)
     implementation(libs.timber)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
