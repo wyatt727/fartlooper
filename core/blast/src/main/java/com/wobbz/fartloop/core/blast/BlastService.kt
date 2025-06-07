@@ -1,4 +1,4 @@
-package com.wobbz.fartloop
+package com.wobbz.fartloop.core.blast
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -54,7 +54,7 @@ class BlastService : Service() {
 
     @Inject lateinit var upnpControlClient: ModernUpnpControlClient
 
-    @Inject lateinit var blastMetrics: BlastMetrics
+    @Inject lateinit var blastMetrics: BlastMetricsCollector
 
     private var notificationManager: NotificationManager? = null
     private var isBlastInProgress = false
@@ -302,20 +302,20 @@ class BlastService : Service() {
     /**
      * Send media to a single device and record metrics.
      */
-    private suspend fun blastToSingleDevice(device: UpnpDevice, mediaUrl: String) {
+    private suspend fun blastToSingleDevice(device: UpnpDevice, mediaUrl: String) = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
 
         try {
             Timber.d("Blasting to ${device.friendlyName}")
 
-            val result = upnpControlClient.pushClip(device, mediaUrl)
+            val success = upnpControlClient.pushClip(device.ipAddress, device.port, device.controlUrl, mediaUrl)
             val duration = (System.currentTimeMillis() - startTime).toInt()
 
-            if (result.isSuccess) {
+            if (success) {
                 blastMetrics.recordDeviceSuccess(device.friendlyName, duration)
                 Timber.i("✅ Success: ${device.friendlyName} (${duration}ms)")
             } else {
-                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                val error = "Cast failed for ${device.friendlyName}"
                 blastMetrics.recordDeviceFailure(device.friendlyName, error)
                 Timber.w("❌ Failed: ${device.friendlyName} - $error")
             }
@@ -411,13 +411,18 @@ class BlastService : Service() {
      * Create notification for the foreground service.
      */
     private fun createNotification(message: String, phase: BlastPhase): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        // Create intent to launch the main app activity
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        val pendingIntent = if (intent != null) {
+            PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        } else {
+            null
+        }
 
         val icon = when (phase) {
             BlastPhase.HTTP_STARTING -> android.R.drawable.ic_menu_upload
@@ -427,14 +432,18 @@ class BlastService : Service() {
             BlastPhase.IDLE -> android.R.drawable.ic_menu_info_details
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Fart-Looper Blast")
             .setContentText(message)
             .setSmallIcon(icon)
-            .setContentIntent(pendingIntent)
             .setOngoing(phase != BlastPhase.COMPLETE)
             .setPriority(NotificationCompat.PRIORITY_LOW) // Low importance to avoid heads-up
-            .build()
+
+        if (pendingIntent != null) {
+            builder.setContentIntent(pendingIntent)
+        }
+
+        return builder.build()
     }
 
     /**

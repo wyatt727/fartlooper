@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wobbz.fartloop.design.theme.*
-import com.wobbz.fartloop.feature.home.model.*
+import com.wobbz.fartloop.core.blast.*
 import timber.log.Timber
 
 /**

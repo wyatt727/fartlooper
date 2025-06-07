@@ -27,6 +27,10 @@
     <!-- POST_NOTIFICATIONS: Display blast progress notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- MEDIA PLAYBACK FINDING: Android 14+ requires explicit permission for media playback foreground services -->
+    <!-- FOREGROUND_SERVICE_MEDIA_PLAYBACK: Required for mediaPlayback foreground service type (API 34+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <!-- APPLICATION CONFIGURATION FINDING: Hilt requires application class specification -->
     <!-- MANIFEST MERGER FIX FINDING: UPnPCast library defines Theme.UPnPCast which conflicts with our Theme.FartLooper -->
     <!-- tools:replace="android:theme" forces our theme to override the library's theme -->
@@ -62,14 +66,16 @@
 
         <!-- BLAST SERVICE FINDING: Foreground service for UPnP discovery and media blasting -->
         <!-- BlastService: Core service handling HTTP server, discovery, and SOAP commands -->
+        <!-- ARCHITECTURE FINDING: Service moved to core:blast module for clean separation -->
         <service
-            android:name=".BlastService"
+            android:name="com.wobbz.fartloop.core.blast.BlastService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
 
             <!-- ADB INTEGRATION FINDING: Allow external triggering via ADB intent -->
             <intent-filter>
+                <action android:name="com.wobbz.fartloop.ACTION_START_BLAST" />
                 <action android:name="com.wobbz.fartloop.ACTION_RUN_CLIP" />
                 <action android:name="com.wobbz.fartloop.ACTION_AUTO_BLAST" />
             </intent-filter>

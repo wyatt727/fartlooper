@@ -2,6 +2,7 @@ package com.wobbz.fartloop.core.media
 
 import android.content.Context
 import android.net.Uri
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class StorageUtil @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private val cacheDir = context.cacheDir.resolve("audio").apply {
         mkdirs()

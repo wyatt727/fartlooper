@@ -25,8 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wobbz.fartloop.design.theme.*
-import com.wobbz.fartloop.feature.home.model.BlastMetrics
-import com.wobbz.fartloop.feature.home.model.DiscoveryMethodStats
+import com.wobbz.fartloop.core.blast.BlastMetrics
+import com.wobbz.fartloop.core.blast.DiscoveryMethodStats
 import timber.log.Timber
 import kotlin.math.cos
 import kotlin.math.sin

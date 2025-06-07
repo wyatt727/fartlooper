@@ -65,6 +65,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
     implementation(project(":design"))
+    implementation(project(":core:blast"))
     implementation(project(":core:network"))
     implementation(project(":core:media"))
 

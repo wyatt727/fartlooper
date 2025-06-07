@@ -43,6 +43,7 @@ rootProject.name = "fart-looper"
 include(
     ":app",
     ":design",
+    ":core:blast",
     ":core:media",
     ":core:network",
     ":core:simulator",

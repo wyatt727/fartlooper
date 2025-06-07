@@ -1,8 +1,12 @@
 package com.wobbz.fartloop.feature.home.model
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wobbz.fartloop.core.blast.BlastService
+import com.wobbz.fartloop.core.blast.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +22,9 @@ import javax.inject.Inject
  * StateFlow provides reactive UI updates while maintaining lifecycle awareness.
  */
 @HiltViewModel
-class HomeViewModel @Inject constructor() : ViewModel() {
+class HomeViewModel @Inject constructor(
+    @ApplicationContext private val context: Context
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -40,8 +46,14 @@ class HomeViewModel @Inject constructor() : ViewModel() {
                     blastStage = BlastStage.HTTP_STARTING
                 )
 
-                // TODO: Start BlastService via Intent
-                // BlastService.startBlast(context, discoveryTimeoutMs, concurrency)
+                // Start BlastService with default parameters
+                BlastService.startBlast(
+                    context = context,
+                    discoveryTimeoutMs = 4000L, // 4 second discovery timeout
+                    concurrency = 3 // Max 3 concurrent device blasts
+                )
+
+                Timber.i("HomeViewModel: BlastService started successfully")
 
             } catch (e: Exception) {
                 Timber.e(e, "HomeViewModel: Error starting blast")
@@ -61,12 +73,14 @@ class HomeViewModel @Inject constructor() : ViewModel() {
             try {
                 Timber.d("HomeViewModel: Stopping blast operation")
 
-                // TODO: Stop BlastService via Intent
-                // BlastService.stopBlast(context)
+                // Stop BlastService
+                BlastService.stopBlast(context)
 
                 _uiState.value = _uiState.value.copy(
                     blastStage = BlastStage.IDLE
                 )
+
+                Timber.i("HomeViewModel: BlastService stopped successfully")
 
             } catch (e: Exception) {
                 Timber.e(e, "HomeViewModel: Error stopping blast")

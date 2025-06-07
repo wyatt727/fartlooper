@@ -44,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
@@ -60,6 +61,7 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
@@ -75,6 +77,7 @@ dependencies {
 
     // Module dependencies
     implementation(project(":design"))
+    implementation(project(":core:blast"))
     implementation(project(":core:media"))
     implementation(project(":core:network"))
     implementation(project(":core:simulator"))

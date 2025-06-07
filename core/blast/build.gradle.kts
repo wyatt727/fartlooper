@@ -1,13 +1,12 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    // MODERN DEPENDENCIES: Re-enabling Hilt with UPnPCast and jMDNS libraries
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt)
 }
 
 android {
-    namespace = "com.wobbz.fartloop.core.network"
+    namespace = "com.wobbz.fartloop.core.blast"
     compileSdk = 34
 
     defaultConfig {
@@ -36,28 +35,15 @@ android {
 
 dependencies {
     implementation(libs.androidx.core)
-
-    // UPNP/MDNS LIBRARY RESOLUTION: Using modern alternatives to deprecated Cling
-    // jMDNS is available on Maven Central and actively maintained
-    implementation(libs.jmdns)
-
-    // UPnP Options: Using manual SOAP implementation instead of external libraries
-    // UPnPCast library was too simplified and didn't send proper SOAP requests
-    // Now implementing proper UPnP SOAP communication manually
-    // implementation(libs.upnpcast)  // REMOVED: Doesn't send proper SOAP requests
-
-    // Option B: DM-UPnP - Actively maintained Cling fork with security fixes
-    // implementation(libs.dm-upnp-android)
-
-    // LEGACY CLING: Original deprecated libraries (fallback only)
-    // implementation(libs.cling.core)
-    // implementation(libs.cling.support)
-
-    implementation(libs.timber)
-
-    // HILT DEPENDENCY INJECTION: Re-enabled with modern libraries
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation(libs.hilt.android)
+    implementation(libs.timber)
+    implementation(libs.nanohttpd)
     kapt(libs.hilt.compiler)
+
+    // Core dependencies
+    implementation(project(":core:media"))
+    implementation(project(":core:network"))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

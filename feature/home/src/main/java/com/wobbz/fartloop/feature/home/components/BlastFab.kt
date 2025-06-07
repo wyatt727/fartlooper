@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.wobbz.fartloop.design.AccessibilityUtils
 import com.wobbz.fartloop.design.accessibleClickable
 import com.wobbz.fartloop.design.theme.*
-import com.wobbz.fartloop.feature.home.model.BlastStage
+import com.wobbz.fartloop.core.blast.BlastStage
 import timber.log.Timber
 
 /**

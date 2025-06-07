@@ -1,4 +1,4 @@
-package com.wobbz.fartloop
+package com.wobbz.fartloop.core.blast
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -7,11 +7,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Metrics tracking for blast operations.
- * Provides real-time statistics for the HUD and debugging.
+ * Tracks real-time metrics during blast operations.
+ *
+ * METRICS COLLECTION FINDING: Provides live feedback for UI progress indicators
+ * and post-blast analytics. StateFlow enables reactive UI updates while maintaining
+ * thread-safe access to metrics data across service and UI components.
  */
 @Singleton
-class BlastMetrics @Inject constructor() {
+class BlastMetricsCollector @Inject constructor() {
 
     private val _currentMetrics = MutableStateFlow(MetricsSnapshot())
     val currentMetrics: StateFlow<MetricsSnapshot> = _currentMetrics.asStateFlow()
@@ -171,13 +174,4 @@ sealed class DeviceResult {
     data class Failure(val error: String) : DeviceResult()
 }
 
-/**
- * Current phase of the blast operation.
- */
-enum class BlastPhase {
-    IDLE,
-    HTTP_STARTING,
-    DISCOVERING,
-    BLASTING,
-    COMPLETE,
-}
+

@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.wobbz.fartloop.design.theme.*
-import com.wobbz.fartloop.feature.home.model.*
+import com.wobbz.fartloop.core.blast.*
 import timber.log.Timber
 
 /**

@@ -1,9 +1,11 @@
 package com.wobbz.fartloop.core.media
 
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.io.FileInputStream
 import java.io.IOException
@@ -24,7 +26,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class HttpServerManager @Inject constructor(
-    private val context: Context,
+    @ApplicationContext private val context: Context,
     private val storageUtil: StorageUtil
 ) : NanoHTTPD(0) {  // Auto-select port starting from 8080
 
@@ -60,23 +62,95 @@ class HttpServerManager @Inject constructor(
      * Auto-selects the first available port starting from 8080.
      */
     suspend fun startServer(): Result<String> = withContext(Dispatchers.IO) {
+        Timber.d("HttpServerManager: startServer() called")
+
         try {
             if (isServerRunning) {
-                Timber.w("Server already running on port $listeningPort")
+                Timber.w("HttpServerManager: Server already running on port $listeningPort")
                 return@withContext Result.success(baseUrl)
             }
 
-            // Try to start on auto-selected port
-            start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+            Timber.d("HttpServerManager: Starting HTTP server initialization...")
+
+            // Step 1: Determine local IP with timeout
+            Timber.d("HttpServerManager: Step 1 - Determining local IP address...")
+            val localIp = try {
+                withTimeoutOrNull(5000L) {
+                    getLocalIpAddress()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "HttpServerManager: Error getting local IP")
+                "127.0.0.1"
+            } ?: run {
+                Timber.w("HttpServerManager: IP detection timed out, using localhost")
+                "127.0.0.1"
+            }
+
+            Timber.i("HttpServerManager: Using IP address: $localIp")
+
+            // Step 2: Start the NanoHTTPD server with timeout protection
+            Timber.d("HttpServerManager: Step 2 - Starting NanoHTTPD server...")
+
+            val serverStarted = try {
+                withTimeoutOrNull(8000L) { // 8 second timeout for server startup
+                    Timber.d("HttpServerManager: Calling NanoHTTPD.start()...")
+                    start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+
+                    Timber.d("HttpServerManager: NanoHTTPD.start() completed, checking status...")
+
+                    // Give server a moment to initialize
+                    kotlinx.coroutines.delay(200)
+
+                    // Verify server is actually alive
+                    val isAlive = try {
+                        isAlive()
+                    } catch (e: Exception) {
+                        Timber.w(e, "HttpServerManager: Error checking if server is alive")
+                        false
+                    }
+
+                    Timber.d("HttpServerManager: Server alive check: $isAlive")
+                    isAlive
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "HttpServerManager: Exception during server startup")
+                false
+            }
+
+            if (serverStarted == null) {
+                Timber.e("HttpServerManager: Server startup timed out after 8 seconds")
+                isServerRunning = false
+                return@withContext Result.failure(IOException("HTTP server startup timed out"))
+            }
+
+            if (!serverStarted) {
+                Timber.e("HttpServerManager: Server failed to start or is not alive")
+                isServerRunning = false
+                return@withContext Result.failure(IOException("HTTP server failed to start"))
+            }
+
+            // Step 3: Construct base URL
+            Timber.d("HttpServerManager: Step 3 - Constructing base URL...")
             isServerRunning = true
 
-            val url = baseUrl
-            Timber.i("HTTP server started successfully on $url")
-            Result.success(url)
+            val baseUrl = try {
+                "http://$localIp:$listeningPort"
+            } catch (e: Exception) {
+                Timber.e(e, "HttpServerManager: Error constructing base URL")
+                "http://127.0.0.1:$listeningPort"
+            }
+
+            Timber.i("HttpServerManager: ✅ HTTP server started successfully on $baseUrl")
+            Result.success(baseUrl)
+
         } catch (e: IOException) {
-            Timber.e(e, "Failed to start HTTP server")
+            Timber.e(e, "HttpServerManager: IOException during server startup")
             isServerRunning = false
             Result.failure(e)
+        } catch (e: Exception) {
+            Timber.e(e, "HttpServerManager: Unexpected error during server startup")
+            isServerRunning = false
+            Result.failure(IOException("Unexpected error: ${e.message}", e))
         }
     }
 
@@ -267,21 +341,77 @@ class HttpServerManager @Inject constructor(
      * Prefers Wi-Fi interface over others.
      */
     private fun getLocalIpAddress(): String {
+        Timber.d("HttpServerManager: getLocalIpAddress() starting...")
+
         return try {
-            // Try to get a reasonable local address
-            // This is a simplified approach - in production might want more sophisticated network interface detection
-            val localhost = InetAddress.getLocalHost()
-            if (localhost.hostAddress != "127.0.0.1") {
-                localhost.hostAddress
-            } else {
-                // Fallback - iterate through network interfaces to find a good one
-                java.net.NetworkInterface.getNetworkInterfaces().asSequence()
-                    .flatMap { it.inetAddresses.asSequence() }
-                    .firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress && it is java.net.Inet4Address }
-                    ?.hostAddress ?: "127.0.0.1"
+            Timber.d("HttpServerManager: Enumerating network interfaces...")
+
+            // METHOD 1: Try to find Wi-Fi interface first (most reliable on Android)
+            val networkInterfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            val wifiCandidates = mutableListOf<String>()
+            val otherCandidates = mutableListOf<String>()
+
+            var interfaceCount = 0
+            for (networkInterface in networkInterfaces) {
+                interfaceCount++
+
+                if (!networkInterface.isUp || networkInterface.isLoopback) {
+                    Timber.d("HttpServerManager: Skipping interface ${networkInterface.displayName} (down or loopback)")
+                    continue
+                }
+
+                val displayName = networkInterface.displayName.lowercase()
+                Timber.d("HttpServerManager: Checking interface: ${networkInterface.displayName}")
+
+                // Prefer Wi-Fi interfaces
+                val isWifi = displayName.contains("wlan") || displayName.contains("wifi") || displayName.contains("wl")
+
+                var addressCount = 0
+                for (address in networkInterface.inetAddresses) {
+                    addressCount++
+
+                    if (address.isLoopbackAddress || address.isLinkLocalAddress) continue
+                    if (address !is java.net.Inet4Address) continue
+
+                    val ip = address.hostAddress
+                    if (ip != null) {
+                        Timber.d("HttpServerManager: Found IP on ${networkInterface.displayName}: $ip (isWifi: $isWifi)")
+
+                        if (isWifi) {
+                            wifiCandidates.add(ip)
+                        } else {
+                            otherCandidates.add(ip)
+                        }
+                    }
+                }
+
+                Timber.d("HttpServerManager: Interface ${networkInterface.displayName} had $addressCount addresses")
             }
+
+            Timber.d("HttpServerManager: Processed $interfaceCount interfaces")
+            Timber.d("HttpServerManager: WiFi candidates: $wifiCandidates")
+            Timber.d("HttpServerManager: Other candidates: $otherCandidates")
+
+            // Return best candidate
+            when {
+                wifiCandidates.isNotEmpty() -> {
+                    val chosen = wifiCandidates.first()
+                    Timber.i("HttpServerManager: Using Wi-Fi IP address: $chosen")
+                    chosen
+                }
+                otherCandidates.isNotEmpty() -> {
+                    val chosen = otherCandidates.first()
+                    Timber.i("HttpServerManager: Using fallback IP address: $chosen")
+                    chosen
+                }
+                else -> {
+                    Timber.w("HttpServerManager: No suitable network interfaces found, using localhost")
+                    "127.0.0.1"
+                }
+            }
+
         } catch (e: Exception) {
-            Timber.w(e, "Could not determine local IP address, using localhost")
+            Timber.e(e, "HttpServerManager: Error determining local IP address, using localhost")
             "127.0.0.1"
         }
     }
