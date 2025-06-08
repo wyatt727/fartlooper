@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -59,6 +60,9 @@ class BlastService : Service() {
     private var notificationManager: NotificationManager? = null
     private var isBlastInProgress = false
 
+    // Track final discovery method stats for convenience overload
+    private var finalDiscoveryMethodStats = DiscoveryMethodStats()
+
     // Manual coroutine scope management since we can't use LifecycleService with Hilt
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -82,22 +86,27 @@ class BlastService : Service() {
             discoveryTimeoutMs: Long = 4000,
             concurrency: Int = 3,
         ) {
+            Timber.i("🔧 BlastService.startBlast() called - Creating foreground service intent")
             val intent = Intent(context, BlastService::class.java).apply {
                 action = ACTION_START_BLAST
                 putExtra(EXTRA_DISCOVERY_TIMEOUT, discoveryTimeoutMs)
                 putExtra(EXTRA_CONCURRENCY, concurrency)
             }
+            Timber.d("BlastService.startBlast() - Starting foreground service")
             context.startForegroundService(intent)
+            Timber.i("BlastService.startBlast() - Foreground service start requested")
         }
 
         /**
          * Stop any ongoing blast operation.
          */
         fun stopBlast(context: Context) {
+            Timber.i("🛑 BlastService.stopBlast() called")
             val intent = Intent(context, BlastService::class.java).apply {
                 action = ACTION_STOP_BLAST
             }
             context.startService(intent)
+            Timber.d("BlastService.stopBlast() - Stop service intent sent")
         }
 
         /**
@@ -107,36 +116,80 @@ class BlastService : Service() {
             context: Context,
             discoveryTimeoutMs: Long = 4000
         ) {
-            val intent = Intent(context, BlastService::class.java).apply {
-                action = ACTION_DISCOVER_ONLY
-                putExtra(EXTRA_DISCOVERY_TIMEOUT, discoveryTimeoutMs)
+            try {
+                Timber.i("🔍 BlastService.discoverDevices() called - timeout: ${discoveryTimeoutMs}ms")
+                Timber.d("BlastService.discoverDevices() - context: ${context.javaClass.simpleName}")
+
+                Timber.d("BlastService.discoverDevices() - About to create Intent")
+                val intent = Intent(context, BlastService::class.java)
+                Timber.d("BlastService.discoverDevices() - Intent created successfully")
+
+                intent.action = ACTION_DISCOVER_ONLY
+                Timber.d("BlastService.discoverDevices() - Action set to: $ACTION_DISCOVER_ONLY")
+
+                intent.putExtra(EXTRA_DISCOVERY_TIMEOUT, discoveryTimeoutMs)
+                Timber.d("BlastService.discoverDevices() - Extras added")
+
+                Timber.d("BlastService.discoverDevices() - Starting foreground service for discovery")
+
+                // ANDROID 14 FIX: Try startForegroundService first, then fallback to startService if needed
+                try {
+                    val result = context.startForegroundService(intent)
+                    Timber.i("BlastService.discoverDevices() - startForegroundService() returned: $result")
+
+                    if (result == null) {
+                        Timber.w("BlastService.discoverDevices() - startForegroundService returned null, trying startService fallback")
+                        val fallbackResult = context.startService(intent)
+                        Timber.i("BlastService.discoverDevices() - startService() fallback returned: $fallbackResult")
+                    }
+                } catch (e: SecurityException) {
+                    Timber.w(e, "BlastService.discoverDevices() - startForegroundService failed with SecurityException, trying startService fallback")
+                    val fallbackResult = context.startService(intent)
+                    Timber.i("BlastService.discoverDevices() - startService() fallback returned: $fallbackResult")
+                } catch (e: IllegalStateException) {
+                    Timber.w(e, "BlastService.discoverDevices() - startForegroundService failed with IllegalStateException, trying startService fallback")
+                    val fallbackResult = context.startService(intent)
+                    Timber.i("BlastService.discoverDevices() - startService() fallback returned: $fallbackResult")
+                }
+
+                Timber.i("BlastService.discoverDevices() - Method completed successfully")
+
+            } catch (e: Exception) {
+                Timber.e(e, "BlastService.discoverDevices() - Unexpected exception during service start")
+                throw e
             }
-            context.startForegroundService(intent)
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        Timber.d("BlastService created")
+        Timber.i("🚀 BlastService: onCreate() called - Service is starting")
 
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
+
+        Timber.d("BlastService: Notification manager initialized and channel created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
+        Timber.i("🎯 BlastService: onStartCommand() called with action: ${intent?.action}")
+
         when (intent?.action) {
             ACTION_START_BLAST -> {
+                Timber.i("BlastService: Starting blast operation")
                 if (!isBlastInProgress) {
                     val discoveryTimeout = intent.getLongExtra(EXTRA_DISCOVERY_TIMEOUT, 4000)
                     val concurrency = intent.getIntExtra(EXTRA_CONCURRENCY, 3)
+                    Timber.d("BlastService: Blast parameters - timeout: ${discoveryTimeout}ms, concurrency: $concurrency")
                     startBlastOperation(discoveryTimeout, concurrency, isAutoTriggered = false)
                 } else {
                     Timber.w("Blast already in progress, ignoring start request")
                 }
             }
             ACTION_AUTO_BLAST -> {
+                Timber.i("BlastService: Starting auto-blast operation")
                 if (!isBlastInProgress) {
                     val reason = intent.getStringExtra(EXTRA_TRIGGER_REASON) ?: "auto"
                     Timber.i("Starting auto-blast triggered by: $reason")
@@ -147,15 +200,33 @@ class BlastService : Service() {
                 }
             }
             ACTION_STOP_BLAST -> {
+                Timber.i("BlastService: Stopping blast operation")
                 stopBlastOperation()
             }
             ACTION_DISCOVER_ONLY -> {
+                Timber.i("BlastService: Starting discovery-only operation")
                 if (!isBlastInProgress) {
                     val discoveryTimeout = intent.getLongExtra(EXTRA_DISCOVERY_TIMEOUT, 4000)
+                    Timber.d("BlastService: Discovery timeout: ${discoveryTimeout}ms")
+
+                    // ANDROID 14 FIX: Ensure service runs in foreground for discovery
+                    try {
+                        startForeground(NOTIFICATION_ID, createNotification("Starting discovery...", BlastPhase.DISCOVERING))
+                        Timber.d("BlastService: Promoted to foreground service for discovery")
+                    } catch (e: Exception) {
+                        Timber.w(e, "BlastService: Failed to promote to foreground, continuing as background service")
+                    }
+
                     startDiscoveryOnlyOperation(discoveryTimeout)
                 } else {
                     Timber.w("Blast in progress, ignoring discovery-only request")
                 }
+            }
+            null -> {
+                Timber.w("BlastService: Received null intent")
+            }
+            else -> {
+                Timber.w("BlastService: Unknown action: ${intent.action}")
             }
         }
 
@@ -240,73 +311,63 @@ class BlastService : Service() {
      * Start a discovery-only operation without blasting audio.
      */
     private fun startDiscoveryOnlyOperation(discoveryTimeoutMs: Long) {
-        Timber.i("Starting discovery-only operation (timeout: ${discoveryTimeoutMs}ms)")
+        Timber.i("🔍 BlastService: startDiscoveryOnlyOperation() called with timeout: ${discoveryTimeoutMs}ms")
 
         isBlastInProgress = true // Prevent multiple simultaneous operations
         blastMetrics.resetForNewBlast()
 
-        startForeground(NOTIFICATION_ID, createNotification("Discovering devices...", BlastPhase.DISCOVERING))
+        // Note: startForeground is now called in onStartCommand to avoid duplicate calls
+        Timber.d("BlastService: Discovery operation initialized")
 
         serviceScope.launch {
             try {
+                Timber.i("BlastService: Launching discovery coroutine")
                 // Only run discovery phase
                 val devices = discoverDevices(discoveryTimeoutMs)
 
-                // Complete discovery operation
-                completeDiscoveryOnly(devices)
+                Timber.i("BlastService: Discovery completed with ${devices.size} devices")
+                updateNotification("Discovery complete: ${devices.size} devices found", BlastPhase.COMPLETE)
+
+                // Broadcast discovery completion
+                val intent = Intent("com.wobbz.fartloop.DISCOVERY_COMPLETE").apply {
+                    putExtra("devices_found", devices.size)
+                }
+                LocalBroadcastManager.getInstance(this@BlastService).sendBroadcast(intent)
+
+                // DISCOVERY-ONLY FIX: Return to IDLE state instead of COMPLETED
+                // This allows users to start blasting to the discovered devices
+                broadcastStageUpdate(BlastStage.IDLE)
+                broadcastMetricsUpdate()
+
+                Timber.d("BlastService: Discovery-only operation complete: ${devices.size} devices found")
             } catch (e: Exception) {
-                Timber.e(e, "Discovery operation failed")
-                handleDiscoveryError(e)
+                Timber.e(e, "BlastService: Discovery operation failed")
+
+                val errorMessage = "Discovery failed: ${e.message}"
+                updateNotification(errorMessage, BlastPhase.COMPLETE)
+
+                // Broadcast discovery error
+                val intent = Intent("com.wobbz.fartloop.DISCOVERY_ERROR").apply {
+                    putExtra("error", e.message)
+                }
+                LocalBroadcastManager.getInstance(this@BlastService).sendBroadcast(intent)
+
+                // DISCOVERY-ONLY ERROR FIX: Return to IDLE state instead of COMPLETED
+                // This allows users to retry discovery after an error
+                broadcastStageUpdate(BlastStage.IDLE)
+                broadcastMetricsUpdate()
+            } finally {
+                isBlastInProgress = false
+
+                // Stop service after a delay to show the final notification
+                kotlinx.coroutines.delay(2000)
+
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
             }
         }
-    }
 
-    /**
-     * Complete discovery-only operation.
-     */
-    private suspend fun completeDiscoveryOnly(devices: List<UpnpDevice>) {
-        Timber.d("Discovery-only operation complete: ${devices.size} devices found")
-
-        val summary = "Discovery complete: ${devices.size} devices found"
-        updateNotification(summary, BlastPhase.COMPLETE)
-
-        // Broadcast discovery completion
-        val intent = Intent("com.wobbz.fartloop.DISCOVERY_COMPLETE").apply {
-            putExtra("devices_found", devices.size)
-        }
-        sendBroadcast(intent)
-
-        broadcastStageUpdate(BlastStage.COMPLETED)
-        broadcastMetricsUpdate()
-
-        // Stop service after a delay
-        kotlinx.coroutines.delay(2000) // Show notification for 2 seconds
-
-        isBlastInProgress = false
-
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
-    /**
-     * Handle discovery-only operation errors.
-     */
-    private suspend fun handleDiscoveryError(error: Exception) {
-        Timber.e(error, "Discovery operation failed")
-
-        updateNotification("Discovery failed: ${error.message}", BlastPhase.COMPLETE)
-
-        // Broadcast error
-        val intent = Intent("com.wobbz.fartloop.DISCOVERY_ERROR").apply {
-            putExtra("error", error.message)
-        }
-        sendBroadcast(intent)
-
-        isBlastInProgress = false
-
-        kotlinx.coroutines.delay(2000) // Show error for 2 seconds
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        Timber.d("BlastService: Discovery coroutine launched, method completing")
     }
 
     /**
@@ -330,7 +391,7 @@ class BlastService : Service() {
     }
 
     /**
-     * Stage 2: Discover devices on the network.
+     * Stage 2: Discover devices using multiple discovery methods.
      */
     private suspend fun discoverDevices(timeoutMs: Long): List<UpnpDevice> = withContext(Dispatchers.IO) {
         Timber.d("Stage 2: Discovering devices (timeout: ${timeoutMs}ms)")
@@ -340,6 +401,22 @@ class BlastService : Service() {
         blastMetrics.startDiscoveryTiming()
 
         val devices = mutableListOf<UpnpDevice>()
+        val discoveryStartTime = System.currentTimeMillis()
+
+        // Track per-method discovery stats for metrics
+        val discoveryMethodCounts = mutableMapOf<String, Int>(
+            "SSDP" to 0,
+            "mDNS" to 0,
+            "PortScan" to 0
+        )
+        val discoveryMethodTimes = mutableMapOf<String, Long>(
+            "SSDP" to 0L,
+            "mDNS" to 0L,
+            "PortScan" to 0L
+        )
+
+        // Store discovered device IDs to prevent duplicates while preserving better friendly names
+        val discoveredDeviceIds = mutableSetOf<String>()
 
         discoveryBus.discoverAll(timeoutMs)
             .flowOn(Dispatchers.IO)
@@ -347,17 +424,127 @@ class BlastService : Service() {
                 Timber.e(e, "Discovery error")
             }
             .collect { device ->
-                devices.add(device)
-                Timber.d("Discovered device: ${device.friendlyName}")
+                val deviceId = "${device.ipAddress}:${device.port}"
+
+                // Check for duplicates - prefer devices with better friendly names
+                val existingDevice = devices.find { it.ipAddress == device.ipAddress && it.port == device.port }
+                if (existingDevice != null) {
+                    // Replace if new device has a better (more specific) friendly name
+                    // Priority: SSDP > mDNS > PortScan based on name patterns and discovery method
+                    val shouldReplace = when {
+                        // Always prefer SSDP discoveries over others
+                        device.discoveryMethod == "SSDP" && existingDevice.discoveryMethod != "SSDP" -> true
+                        // Prefer mDNS over PortScan
+                        device.discoveryMethod == "mDNS" && existingDevice.discoveryMethod == "PortScan" -> true
+                        // Within same method, prefer names that don't start with generic patterns
+                        device.discoveryMethod == existingDevice.discoveryMethod -> {
+                            val newIsGeneric = device.friendlyName.startsWith("Device at ") ||
+                                             device.friendlyName.startsWith("Network Device at ") ||
+                                             device.friendlyName.contains(" at ")
+                            val existingIsGeneric = existingDevice.friendlyName.startsWith("Device at ") ||
+                                                   existingDevice.friendlyName.startsWith("Network Device at ") ||
+                                                   existingDevice.friendlyName.contains(" at ")
+
+                            // Replace if new is non-generic and existing is generic
+                            !newIsGeneric && existingIsGeneric
+                        }
+                        else -> false
+                    }
+
+                    if (shouldReplace) {
+                        devices.remove(existingDevice)
+                        devices.add(device)
+
+                        Timber.d("Replaced device with better name: ${existingDevice.friendlyName} (${existingDevice.discoveryMethod}) -> ${device.friendlyName} (${device.discoveryMethod})")
+                    } else {
+                        Timber.d("Skipping duplicate device: $deviceId (keeping ${existingDevice.friendlyName} from ${existingDevice.discoveryMethod})")
+                    }
+                } else if (discoveredDeviceIds.add(deviceId)) {
+                    devices.add(device)
+                    Timber.d("Discovered device: ${device.friendlyName} via ${device.discoveryMethod}")
+
+                    // Track discovery method stats
+                    val method = device.discoveryMethod
+                    discoveryMethodCounts[method] = (discoveryMethodCounts[method] ?: 0) + 1
+                }
+
                 updateNotification("Found ${devices.size} devices...", BlastPhase.DISCOVERING)
 
                 // Broadcast device discovery
                 broadcastDeviceUpdate(device, DeviceStatus.DISCOVERED)
+
+                // Update and broadcast real-time discovery metrics with method stats
+                val currentDiscoveryTime = System.currentTimeMillis() - discoveryStartTime
+
+                // Create updated discovery method stats
+                val updatedDiscoveryStats = DiscoveryMethodStats(
+                    ssdpDevicesFound = discoveryMethodCounts["SSDP"] ?: 0,
+                    mdnsDevicesFound = discoveryMethodCounts["mDNS"] ?: 0,
+                    portScanDevicesFound = discoveryMethodCounts["PortScan"] ?: 0,
+                    ssdpTimeMs = if (discoveryMethodCounts["SSDP"]!! > 0) currentDiscoveryTime else 0L,
+                    mdnsTimeMs = if (discoveryMethodCounts["mDNS"]!! > 0) currentDiscoveryTime else 0L,
+                    portScanTimeMs = if (discoveryMethodCounts["PortScan"]!! > 0) currentDiscoveryTime else 0L
+                )
+
+                val progressMetrics = blastMetrics.currentMetrics.value.copy(
+                    discoveryDurationMs = currentDiscoveryTime.toInt(),
+                    devicesDiscovered = devices.size
+                )
+
+                // Update BlastMetrics with per-method stats
+                val updatedBlastMetrics = BlastMetrics(
+                    httpStartupMs = progressMetrics.httpStartupMs.toLong(),
+                    discoveryTimeMs = currentDiscoveryTime,
+                    totalDevicesFound = devices.size,
+                    connectionsAttempted = progressMetrics.totalDevicesTargeted,
+                    successfulBlasts = progressMetrics.successfulDevices,
+                    failedBlasts = progressMetrics.failedDevices,
+                    averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
+                    isRunning = true,
+                    discoveryMethodStats = updatedDiscoveryStats
+                )
+
+                blastMetrics.updateCurrentMetrics(progressMetrics)
+                broadcastMetricsUpdate(updatedBlastMetrics)
+
+                Timber.d("Discovery progress: ${devices.size} devices in ${currentDiscoveryTime}ms (SSDP: ${discoveryMethodCounts["SSDP"]}, mDNS: ${discoveryMethodCounts["mDNS"]}, PortScan: ${discoveryMethodCounts["PortScan"]})")
             }
 
+        // Final discovery method stats
+        val finalDiscoveryTime = System.currentTimeMillis() - discoveryStartTime
+        val finalDiscoveryStats = DiscoveryMethodStats(
+            ssdpDevicesFound = discoveryMethodCounts["SSDP"] ?: 0,
+            mdnsDevicesFound = discoveryMethodCounts["mDNS"] ?: 0,
+            portScanDevicesFound = discoveryMethodCounts["PortScan"] ?: 0,
+            ssdpTimeMs = if (discoveryMethodCounts["SSDP"]!! > 0) finalDiscoveryTime else 0L,
+            mdnsTimeMs = if (discoveryMethodCounts["mDNS"]!! > 0) finalDiscoveryTime else 0L,
+            portScanTimeMs = if (discoveryMethodCounts["PortScan"]!! > 0) finalDiscoveryTime else 0L
+        )
+
+        // Store for convenience overload
+        finalDiscoveryMethodStats = finalDiscoveryStats
+
         blastMetrics.completeDiscovery(devices.size)
-        broadcastMetricsUpdate()
+
+        // Create final BlastMetrics with complete discovery method stats
+        val finalMetrics = blastMetrics.currentMetrics.value
+        val completedBlastMetrics = BlastMetrics(
+            httpStartupMs = finalMetrics.httpStartupMs.toLong(),
+            discoveryTimeMs = finalDiscoveryTime,
+            totalDevicesFound = devices.size,
+            connectionsAttempted = finalMetrics.totalDevicesTargeted,
+            successfulBlasts = finalMetrics.successfulDevices,
+            failedBlasts = finalMetrics.failedDevices,
+            averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
+            isRunning = true,
+            discoveryMethodStats = finalDiscoveryStats
+        )
+
+        broadcastMetricsUpdate(completedBlastMetrics)
+
         Timber.i("Discovery complete: ${devices.size} devices found")
+        Timber.i("Discovery method breakdown - SSDP: ${finalDiscoveryStats.ssdpDevicesFound}, mDNS: ${finalDiscoveryStats.mdnsDevicesFound}, PortScan: ${finalDiscoveryStats.portScanDevicesFound}")
+        Timber.i("Most effective method: ${finalDiscoveryStats.mostEffectiveMethod}")
 
         return@withContext devices
     }
@@ -429,7 +616,6 @@ class BlastService : Service() {
                 Timber.w("❌ Failed: ${device.friendlyName} - $error")
             }
         } catch (e: Exception) {
-            val duration = (System.currentTimeMillis() - startTime).toInt()
             blastMetrics.recordDeviceFailure(device.friendlyName, e.message ?: "Exception")
             broadcastDeviceUpdate(device, DeviceStatus.FAILED)
             Timber.e(e, "❌ Exception blasting to ${device.friendlyName}")
@@ -483,7 +669,7 @@ class BlastService : Service() {
         val intent = Intent("com.wobbz.fartloop.BLAST_ERROR").apply {
             putExtra("error", error.message)
         }
-        sendBroadcast(intent)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
 
         // Cleanup
         try {
@@ -509,7 +695,7 @@ class BlastService : Service() {
             putExtra("total_duration_ms", metrics.totalBlastDurationMs)
             putExtra("success_rate", blastMetrics.getSuccessRate())
         }
-        sendBroadcast(intent)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
     /**
@@ -583,25 +769,52 @@ class BlastService : Service() {
         val intent = Intent("com.wobbz.fartloop.BLAST_STAGE_UPDATE").apply {
             putExtra("stage", stage.name)
         }
-        sendBroadcast(intent)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         Timber.d("BlastService: Broadcasted stage update: $stage")
     }
 
     /**
-     * Broadcast metrics updates to UI components.
+     * Broadcast current metrics to UI - enhanced with per-method discovery stats.
+     * BROADCAST KEY FIX: Using consistent key names that match HomeViewModel expectations
+     */
+    private fun broadcastMetricsUpdate(metrics: BlastMetrics) {
+        val intent = Intent("com.wobbz.fartloop.BLAST_METRICS_UPDATE").apply {
+            putExtra("httpStartupMs", metrics.httpStartupMs)
+            putExtra("discoveryTimeMs", metrics.discoveryTimeMs)
+            putExtra("devicesFound", metrics.totalDevicesFound)
+            putExtra("successfulBlasts", metrics.successfulBlasts)
+            putExtra("failedBlasts", metrics.failedBlasts)
+            putExtra("isRunning", metrics.isRunning)
+            putExtra("connectionsAttempted", metrics.connectionsAttempted)
+            putExtra("averageLatencyMs", metrics.averageLatencyMs)
+            putExtra("ssdpDevicesFound", metrics.discoveryMethodStats.ssdpDevicesFound)
+            putExtra("mdnsDevicesFound", metrics.discoveryMethodStats.mdnsDevicesFound)
+            putExtra("portScanDevicesFound", metrics.discoveryMethodStats.portScanDevicesFound)
+            putExtra("ssdpTimeMs", metrics.discoveryMethodStats.ssdpTimeMs)
+            putExtra("mdnsTimeMs", metrics.discoveryMethodStats.mdnsTimeMs)
+            putExtra("portScanTimeMs", metrics.discoveryMethodStats.portScanTimeMs)
+        }
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+        Timber.d("BlastService: Broadcasted metrics update - ${metrics.totalDevicesFound} devices, HTTP ${metrics.httpStartupMs}ms, Discovery ${metrics.discoveryTimeMs}ms")
+    }
+
+    /**
+     * Convenience overload that uses current metrics
      */
     private fun broadcastMetricsUpdate() {
-        val metrics = blastMetrics.currentMetrics.value
-        val intent = Intent("com.wobbz.fartloop.BLAST_METRICS_UPDATE").apply {
-            putExtra("httpStartupMs", metrics.httpStartupMs.toLong())
-            putExtra("discoveryTimeMs", metrics.discoveryDurationMs.toLong())
-            putExtra("devicesFound", metrics.devicesDiscovered)
-            putExtra("successfulBlasts", metrics.successfulDevices)
-            putExtra("failedBlasts", metrics.failedDevices)
-            putExtra("isRunning", !metrics.isComplete)
-        }
-        sendBroadcast(intent)
-        Timber.d("BlastService: Broadcasted metrics update")
+        val currentMetrics = blastMetrics.currentMetrics.value
+        val blastMetricsCompat = BlastMetrics(
+            httpStartupMs = currentMetrics.httpStartupMs.toLong(),
+            discoveryTimeMs = currentMetrics.discoveryDurationMs.toLong(),
+            totalDevicesFound = currentMetrics.devicesDiscovered,
+            connectionsAttempted = currentMetrics.totalDevicesTargeted,
+            successfulBlasts = currentMetrics.successfulDevices,
+            failedBlasts = currentMetrics.failedDevices,
+            averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
+            isRunning = !currentMetrics.isComplete,
+            discoveryMethodStats = finalDiscoveryMethodStats
+        )
+        broadcastMetricsUpdate(blastMetricsCompat)
     }
 
     /**
@@ -616,7 +829,7 @@ class BlastService : Service() {
             putExtra("port", device.port)
             putExtra("status", status.name)
         }
-        sendBroadcast(intent)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         Timber.d("BlastService: Broadcasted device update: ${device.friendlyName} -> $status")
     }
 

@@ -36,6 +36,7 @@ android {
 dependencies {
     implementation(libs.androidx.core)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     implementation(libs.hilt.android)
     implementation(libs.timber)
     implementation(libs.nanohttpd)

@@ -172,7 +172,7 @@ class SsdpDiscoverer @Inject constructor() {
             val port = extractPortFromLocation(location) ?: detectDevicePort(server, deviceIp)
 
             val deviceType = determineDeviceType(server, usn, location)
-            val friendlyName = generateFriendlyName(deviceType, deviceIp, server)
+            val friendlyName = generateFriendlyName(deviceType, deviceIp ?: "unknown", server, location)
 
             // CONTROL URL FINDING: Use device-type-specific control URLs instead of hardcoded paths
             val controlUrl = determineControlUrl(deviceType, location)
@@ -286,8 +286,17 @@ class SsdpDiscoverer @Inject constructor() {
 
     /**
      * FRIENDLY NAME GENERATION: Create human-readable device name.
+     * Try to fetch actual friendly name from device description, fall back to generated name.
      */
-    private fun generateFriendlyName(deviceType: DeviceType, ip: String, server: String?): String {
+    private fun generateFriendlyName(deviceType: DeviceType, ip: String, server: String?, location: String? = null): String {
+        // Try to get actual friendly name from device description
+        val actualFriendlyName = location?.let { fetchActualFriendlyName(it) }
+
+        if (!actualFriendlyName.isNullOrBlank() && actualFriendlyName != "Unknown") {
+            return actualFriendlyName
+        }
+
+        // Fall back to type-based naming
         val base = when (deviceType) {
             DeviceType.SONOS -> "Sonos Speaker"
             DeviceType.CHROMECAST -> "Chromecast"
@@ -298,6 +307,35 @@ class SsdpDiscoverer @Inject constructor() {
         }
 
         return "$base at $ip"
+    }
+
+    /**
+     * Fetch actual friendly name from device description XML
+     */
+    private fun fetchActualFriendlyName(locationUrl: String): String? {
+        return try {
+            val url = URL(locationUrl)
+            val connection = url.openConnection()
+            connection.connectTimeout = 2000 // 2 second timeout
+            connection.readTimeout = 2000
+
+            val xmlContent = connection.getInputStream().bufferedReader().readText()
+
+            // Simple XML parsing to extract friendlyName
+            val friendlyNamePattern = "<friendlyName>(.*?)</friendlyName>".toRegex(RegexOption.IGNORE_CASE)
+            val match = friendlyNamePattern.find(xmlContent)
+            val friendlyName = match?.groupValues?.get(1)?.trim()
+
+            if (!friendlyName.isNullOrBlank()) {
+                Timber.d("SsdpDiscoverer: Extracted friendly name: '$friendlyName' from $locationUrl")
+                return friendlyName
+            }
+
+            null
+        } catch (e: Exception) {
+            Timber.d("SsdpDiscoverer: Could not fetch friendly name from $locationUrl: ${e.message}")
+            null
+        }
     }
 
     /**

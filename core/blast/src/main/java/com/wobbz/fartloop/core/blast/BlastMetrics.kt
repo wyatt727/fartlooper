@@ -143,6 +143,16 @@ class BlastMetricsCollector @Inject constructor() {
             0
         }
     }
+
+    /**
+     * Update current metrics directly for real-time progress tracking.
+     *
+     * REAL-TIME PROGRESS FIX: Allows direct metric updates during discovery
+     * for immediate UI feedback without waiting for stage completion.
+     */
+    fun updateCurrentMetrics(metrics: MetricsSnapshot) {
+        _currentMetrics.value = metrics
+    }
 }
 
 /**

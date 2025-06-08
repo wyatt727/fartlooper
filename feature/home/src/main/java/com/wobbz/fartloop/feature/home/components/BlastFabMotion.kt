@@ -42,6 +42,7 @@ import timber.log.Timber
  *
  * @param blastStage Current blast pipeline stage
  * @param isExpanded Whether the FAB should be expanded to bottom sheet
+ * @param isMinimized Whether the FAB should be minimized
  * @param onFabClick Callback when FAB is clicked to start blast
  * @param onDismiss Callback when bottom sheet should be dismissed
  * @param fabSize Size of the FAB when collapsed
@@ -53,6 +54,7 @@ fun BlastFabMotion(
     metrics: BlastMetrics,
     devices: List<DiscoveredDevice>,
     isExpanded: Boolean,
+    isMinimized: Boolean = false,
     onFabClick: () -> Unit,
     onStopClick: () -> Unit = {},
     onDiscoverClick: () -> Unit = {},
@@ -60,8 +62,6 @@ fun BlastFabMotion(
     fabSize: Dp = 80.dp,
     modifier: Modifier = Modifier
 ) {
-    val density = LocalDensity.current
-
     // Container transform animations with Material Motion specs
     val containerScale by animateFloatAsState(
         targetValue = if (isExpanded) 1f else 0.2f,
@@ -100,20 +100,6 @@ fun BlastFabMotion(
         label = "FabAlpha"
     )
 
-    // Background color transition from FAB to sheet
-    val containerColor by animateColorAsState(
-        targetValue = if (isExpanded) {
-            MaterialTheme.colorScheme.surface
-        } else {
-            MaterialTheme.colorScheme.primary
-        },
-        animationSpec = tween(
-            durationMillis = 300,
-            easing = FastOutSlowInEasing
-        ),
-        label = "ContainerColor"
-    )
-
     // Log motion state changes for debugging
     LaunchedEffect(isExpanded, containerScale, fabScale) {
         Timber.d("BlastFabMotion state: expanded=$isExpanded, containerScale=$containerScale, fabScale=$fabScale")
@@ -141,6 +127,7 @@ fun BlastFabMotion(
         ) {
             MotionAwareFab(
                 blastStage = blastStage,
+                isMinimized = isMinimized,
                 onClick = {
                     onFabClick()
                     Timber.d("MotionAwareFab clicked, triggering motion expansion")
@@ -205,23 +192,28 @@ fun BlastFabMotion(
  *
  * Design Finding: FAB state needs to reflect blast progression for smooth handoff
  * The icon and color change based on blast stage to provide visual continuity
+ *
+ * MINIMIZED STATE FIX: Show different icon when minimized to indicate hidden bottom sheet
  */
 @Composable
 private fun MotionAwareFab(
     blastStage: BlastStage,
+    isMinimized: Boolean = false,
     onClick: () -> Unit,
     scale: Float,
     alpha: Float,
     modifier: Modifier = Modifier
 ) {
     // Icon changes based on blast stage for visual continuity
-    val fabIcon = when (blastStage) {
-        BlastStage.IDLE -> Icons.Default.PlayArrow
-        BlastStage.HTTP_STARTING -> Icons.Default.CloudUpload
-        BlastStage.DISCOVERING -> Icons.Default.Search
-        BlastStage.BLASTING -> Icons.Default.Speaker
-        BlastStage.COMPLETING -> Icons.Default.Check
-        BlastStage.COMPLETED -> Icons.Default.CheckCircle
+    val fabIcon = when {
+        isMinimized && blastStage != BlastStage.IDLE -> Icons.Default.ExpandLess // Show expand icon when minimized
+        blastStage == BlastStage.IDLE -> Icons.Default.PlayArrow
+        blastStage == BlastStage.HTTP_STARTING -> Icons.Default.CloudUpload
+        blastStage == BlastStage.DISCOVERING -> Icons.Default.Search
+        blastStage == BlastStage.BLASTING -> Icons.Default.Speaker
+        blastStage == BlastStage.COMPLETING -> Icons.Default.Check
+        blastStage == BlastStage.COMPLETED -> Icons.Default.CheckCircle
+        else -> Icons.Default.PlayArrow
     }
 
     // Color changes to match stage progression
@@ -248,13 +240,15 @@ private fun MotionAwareFab(
     ) {
         Icon(
             imageVector = fabIcon,
-            contentDescription = when (blastStage) {
-                BlastStage.IDLE -> "Start audio blast"
-                BlastStage.HTTP_STARTING -> "Starting server"
-                BlastStage.DISCOVERING -> "Finding devices"
-                BlastStage.BLASTING -> "Blasting audio"
-                BlastStage.COMPLETING -> "Completing blast"
-                BlastStage.COMPLETED -> "Blast complete"
+            contentDescription = when {
+                isMinimized -> "Show progress"
+                blastStage == BlastStage.IDLE -> "Start audio blast"
+                blastStage == BlastStage.HTTP_STARTING -> "Starting server"
+                blastStage == BlastStage.DISCOVERING -> "Finding devices"
+                blastStage == BlastStage.BLASTING -> "Blasting audio"
+                blastStage == BlastStage.COMPLETING -> "Completing blast"
+                blastStage == BlastStage.COMPLETED -> "Blast complete"
+                else -> "Audio blast"
             },
             modifier = Modifier.size(32.dp)
         )
@@ -267,6 +261,10 @@ private fun MotionAwareFab(
  * Architecture Finding: Centralized state management prevents animation conflicts
  * This component manages the complex interaction between FAB visibility,
  * bottom sheet expansion, and motion timing coordination
+ *
+ * MINIMIZE FIX: Separated minimize (temporary hide) from dismiss (permanent close) logic
+ * - Minimize works during active stages (DISCOVERING, BLASTING, etc.)
+ * - Dismiss only works when operation is complete or can be safely cancelled
  */
 @Composable
 fun BlastMotionController(
@@ -281,8 +279,10 @@ fun BlastMotionController(
     // Motion state derived from blast stage
     val isExpanded = blastStage != BlastStage.IDLE
     val canDismiss = blastStage in listOf(BlastStage.COMPLETED, BlastStage.COMPLETING)
+    val canMinimize = blastStage in listOf(BlastStage.HTTP_STARTING, BlastStage.DISCOVERING, BlastStage.BLASTING)
 
     var isDismissing by remember { mutableStateOf(false) }
+    var isMinimized by remember { mutableStateOf(false) }
 
     // Auto-dismiss after completion with delay
     LaunchedEffect(blastStage) {
@@ -292,15 +292,27 @@ fun BlastMotionController(
         }
     }
 
+    // Reset minimize state when operation completes or starts new operation
+    LaunchedEffect(blastStage) {
+        if (blastStage == BlastStage.IDLE || blastStage == BlastStage.COMPLETED) {
+            isMinimized = false
+        }
+    }
+
     BlastFabMotion(
         blastStage = blastStage,
         metrics = metrics,
         devices = devices,
-        isExpanded = isExpanded && !isDismissing,
+        isExpanded = isExpanded && !isDismissing && !isMinimized,
+        isMinimized = isMinimized,
         onFabClick = {
             if (blastStage == BlastStage.IDLE) {
                 onStartBlast()
                 Timber.d("BlastMotionController triggering blast start")
+            } else if (isMinimized) {
+                // Un-minimize by showing the bottom sheet again
+                isMinimized = false
+                Timber.d("BlastMotionController un-minimizing bottom sheet")
             }
         },
         onStopClick = {
@@ -317,8 +329,13 @@ fun BlastMotionController(
         },
         onDismiss = {
             if (canDismiss) {
+                // Permanent dismissal for completed operations
                 isDismissing = true
-                Timber.d("BlastMotionController handling dismiss")
+                Timber.d("BlastMotionController handling permanent dismiss")
+            } else if (canMinimize) {
+                // Temporary minimize for active operations
+                isMinimized = true
+                Timber.d("BlastMotionController handling minimize (temporary hide)")
             }
         },
         modifier = modifier

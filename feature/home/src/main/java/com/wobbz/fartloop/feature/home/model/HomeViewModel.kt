@@ -7,8 +7,14 @@ import android.content.IntentFilter
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.wobbz.fartloop.core.blast.BlastMetrics
 import com.wobbz.fartloop.core.blast.BlastService
-import com.wobbz.fartloop.core.blast.*
+import com.wobbz.fartloop.core.blast.BlastStage
+import com.wobbz.fartloop.core.blast.DeviceStatus
+import com.wobbz.fartloop.core.blast.DeviceType
+import com.wobbz.fartloop.core.blast.DiscoveredDevice
+import com.wobbz.fartloop.core.blast.DiscoveryMethodStats
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,91 +42,132 @@ class HomeViewModel @Inject constructor(
     // Broadcast receiver for BlastService updates
     private val blastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                "com.wobbz.fartloop.BLAST_STAGE_UPDATE" -> {
-                    val stage = intent.getStringExtra("stage")?.let { stageName ->
-                        BlastStage.values().find { it.name == stageName }
-                    } ?: BlastStage.IDLE
-                    updateBlastStage(stage)
-                    Timber.d("HomeViewModel: Received stage update: $stage")
-                }
-                "com.wobbz.fartloop.BLAST_METRICS_UPDATE" -> {
-                    // Extract metrics from intent and update UI
-                    val httpStartupMs = intent.getLongExtra("httpStartupMs", 0L)
-                    val discoveryTimeMs = intent.getLongExtra("discoveryTimeMs", 0L)
-                    val devicesFound = intent.getIntExtra("devicesFound", 0)
-                    val successfulBlasts = intent.getIntExtra("successfulBlasts", 0)
-                    val failedBlasts = intent.getIntExtra("failedBlasts", 0)
-
-                    val metrics = BlastMetrics(
-                        httpStartupMs = httpStartupMs,
-                        discoveryTimeMs = discoveryTimeMs,
-                        totalDevicesFound = devicesFound,
-                        successfulBlasts = successfulBlasts,
-                        failedBlasts = failedBlasts,
-                        isRunning = intent.getBooleanExtra("isRunning", false)
-                    )
-                    updateMetrics(metrics)
-                    Timber.d("HomeViewModel: Received metrics update: $metrics")
-                }
-                "com.wobbz.fartloop.BLAST_DEVICE_UPDATE" -> {
-                    val deviceId = intent.getStringExtra("deviceId") ?: return
-                    val deviceName = intent.getStringExtra("deviceName") ?: return
-                    val deviceType = intent.getStringExtra("deviceType")?.let { typeName ->
-                        DeviceType.values().find { it.name == typeName }
-                    } ?: DeviceType.UNKNOWN
-                    val ipAddress = intent.getStringExtra("ipAddress") ?: return
-                    val port = intent.getIntExtra("port", 0)
-                    val status = intent.getStringExtra("status")?.let { statusName ->
-                        DeviceStatus.values().find { it.name == statusName }
-                    } ?: DeviceStatus.DISCOVERED
-
-                    val device = DiscoveredDevice(
-                        id = deviceId,
-                        name = deviceName,
-                        type = deviceType,
-                        ipAddress = ipAddress,
-                        port = port,
-                        status = status
-                    )
-                    updateDevice(device)
-                    Timber.d("HomeViewModel: Received device update: $device")
-                }
-                "com.wobbz.fartloop.BLAST_COMPLETE" -> {
-                    updateBlastStage(BlastStage.COMPLETED)
-                    Timber.i("HomeViewModel: Blast operation completed")
-                }
-                                "com.wobbz.fartloop.BLAST_ERROR" -> {
-                    val error = intent.getStringExtra("error") ?: "Unknown error"
-                    _uiState.value = _uiState.value.copy(
-                        blastStage = BlastStage.IDLE,
-                        errorMessage = error
-                    )
-                    Timber.e("HomeViewModel: Blast error received: $error")
-
-                    // Auto-clear error after 5 seconds
-                    viewModelScope.launch {
-                        kotlinx.coroutines.delay(5000)
-                        clearError()
+            intent?.action?.let { action ->
+                Timber.d("HomeViewModel: Received broadcast: $action")
+                when (action) {
+                    "com.wobbz.fartloop.BLAST_STAGE_UPDATE" -> {
+                        val stageName = intent.getStringExtra("stage") ?: return
+                        val stage = try {
+                            BlastStage.valueOf(stageName)
+                        } catch (e: IllegalArgumentException) {
+                            Timber.w("HomeViewModel: Unknown blast stage: $stageName")
+                            return
+                        }
+                        updateBlastStage(stage)
+                        Timber.d("HomeViewModel: Updated blast stage to: $stage")
                     }
-                }
-                "com.wobbz.fartloop.DISCOVERY_COMPLETE" -> {
-                    val devicesFound = intent.getIntExtra("devices_found", 0)
-                    updateBlastStage(BlastStage.COMPLETED)
-                    Timber.i("HomeViewModel: Discovery completed - $devicesFound devices found")
-                }
-                "com.wobbz.fartloop.DISCOVERY_ERROR" -> {
-                    val error = intent.getStringExtra("error") ?: "Discovery failed"
-                    _uiState.value = _uiState.value.copy(
-                        blastStage = BlastStage.IDLE,
-                        errorMessage = error
-                    )
-                    Timber.e("HomeViewModel: Discovery error received: $error")
+                    "com.wobbz.fartloop.BLAST_METRICS_UPDATE" -> {
+                        // Extract metrics from intent and update UI
+                        val httpStartupMs = intent.getLongExtra("httpStartupMs", 0L)
+                        val discoveryTimeMs = intent.getLongExtra("discoveryTimeMs", 0L)
+                        val devicesFound = intent.getIntExtra("devicesFound", 0)
+                        val successfulBlasts = intent.getIntExtra("successfulBlasts", 0)
+                        val failedBlasts = intent.getIntExtra("failedBlasts", 0)
+                        val connectionsAttempted = intent.getIntExtra("connectionsAttempted", 0)
+                        val averageLatencyMs = intent.getLongExtra("averageLatencyMs", 0L)
 
-                    // Auto-clear error after 5 seconds
-                    viewModelScope.launch {
-                        kotlinx.coroutines.delay(5000)
-                        clearError()
+                        // Extract discovery method statistics
+                        val ssdpDevicesFound = intent.getIntExtra("ssdpDevicesFound", 0)
+                        val mdnsDevicesFound = intent.getIntExtra("mdnsDevicesFound", 0)
+                        val portScanDevicesFound = intent.getIntExtra("portScanDevicesFound", 0)
+                        val ssdpTimeMs = intent.getLongExtra("ssdpTimeMs", 0L)
+                        val mdnsTimeMs = intent.getLongExtra("mdnsTimeMs", 0L)
+                        val portScanTimeMs = intent.getLongExtra("portScanTimeMs", 0L)
+
+                        val discoveryMethodStats = DiscoveryMethodStats(
+                            ssdpDevicesFound = ssdpDevicesFound,
+                            mdnsDevicesFound = mdnsDevicesFound,
+                            portScanDevicesFound = portScanDevicesFound,
+                            ssdpTimeMs = ssdpTimeMs,
+                            mdnsTimeMs = mdnsTimeMs,
+                            portScanTimeMs = portScanTimeMs
+                        )
+
+                        val updatedMetrics = BlastMetrics(
+                            httpStartupMs = httpStartupMs,
+                            discoveryTimeMs = discoveryTimeMs,
+                            totalDevicesFound = devicesFound,
+                            successfulBlasts = successfulBlasts,
+                            failedBlasts = failedBlasts,
+                            connectionsAttempted = connectionsAttempted,
+                            averageLatencyMs = averageLatencyMs,
+                            isRunning = intent.getBooleanExtra("isRunning", false),
+                            discoveryMethodStats = discoveryMethodStats
+                        )
+
+                        updateMetrics(updatedMetrics)
+                        Timber.d("HomeViewModel: Updated metrics - devices: $devicesFound, discovery: ${discoveryTimeMs}ms")
+                        Timber.d("HomeViewModel: Discovery method breakdown - SSDP: $ssdpDevicesFound, mDNS: $mdnsDevicesFound, PortScan: $portScanDevicesFound")
+                    }
+                    "com.wobbz.fartloop.BLAST_DEVICE_UPDATE" -> {
+                        // Extract device info from intent
+                        val deviceId = intent.getStringExtra("deviceId") ?: return
+                        val deviceName = intent.getStringExtra("deviceName") ?: "Unknown Device"
+                        val deviceType = try {
+                            DeviceType.valueOf(intent.getStringExtra("deviceType") ?: "UPNP")
+                        } catch (e: IllegalArgumentException) {
+                            DeviceType.UPNP
+                        }
+                        val ipAddress = intent.getStringExtra("ipAddress") ?: ""
+                        val port = intent.getIntExtra("port", 0)
+                        val status = try {
+                            DeviceStatus.valueOf(intent.getStringExtra("status") ?: "DISCOVERED")
+                        } catch (e: IllegalArgumentException) {
+                            Timber.w("HomeViewModel: Unknown device status: ${intent.getStringExtra("status")}")
+                            DeviceStatus.DISCOVERED
+                        }
+
+                        val device = DiscoveredDevice(
+                            id = deviceId,
+                            name = deviceName,
+                            type = deviceType,
+                            ipAddress = ipAddress,
+                            port = port,
+                            status = status
+                        )
+                        updateDevice(device)
+                        Timber.d("HomeViewModel: Updated device: $device")
+                    }
+                    "com.wobbz.fartloop.BLAST_COMPLETE" -> {
+                        updateBlastStage(BlastStage.COMPLETED)
+                        Timber.i("HomeViewModel: Blast operation completed")
+                    }
+                    "com.wobbz.fartloop.BLAST_ERROR" -> {
+                        val error = intent.getStringExtra("error") ?: "Unknown error"
+                        _uiState.value = _uiState.value.copy(
+                            blastStage = BlastStage.IDLE,
+                            errorMessage = error
+                        )
+                        Timber.e("HomeViewModel: Blast error received: $error")
+
+                        // Auto-clear error after 5 seconds
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(5000)
+                            clearError()
+                        }
+                    }
+                    "com.wobbz.fartloop.DISCOVERY_COMPLETE" -> {
+                        val devicesFound = intent.getIntExtra("devices_found", 0)
+                        // DISCOVERY-ONLY FIX: Don't override stage - BlastService will send IDLE stage
+                        // This allows users to start blasting to the discovered devices
+                        Timber.i("HomeViewModel: Discovery completed - $devicesFound devices found")
+                    }
+                    "com.wobbz.fartloop.DISCOVERY_ERROR" -> {
+                        val error = intent.getStringExtra("error") ?: "Discovery failed"
+                        _uiState.value = _uiState.value.copy(
+                            blastStage = BlastStage.IDLE,
+                            errorMessage = error
+                        )
+                        Timber.e("HomeViewModel: Discovery error received: $error")
+
+                        // Auto-clear error after 5 seconds
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(5000)
+                            clearError()
+                        }
+                    }
+                    else -> {
+                        Timber.d("HomeViewModel: Unhandled broadcast action: $action")
                     }
                 }
             }
@@ -139,13 +186,10 @@ class HomeViewModel @Inject constructor(
             addAction("com.wobbz.fartloop.DISCOVERY_ERROR")
         }
 
-        // ANDROID 14+ FIX: Specify RECEIVER_NOT_EXPORTED for internal app broadcasts
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(blastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(blastReceiver, filter)
-        }
-        Timber.d("HomeViewModel: Broadcast receiver registered for BlastService updates")
+        // LOCAL BROADCAST FIX: Use LocalBroadcastManager for same-app communication
+        // This is more reliable than regular broadcasts and won't be blocked by Android restrictions
+        LocalBroadcastManager.getInstance(context).registerReceiver(blastReceiver, filter)
+        Timber.d("HomeViewModel: Local broadcast receiver registered for BlastService updates")
     }
 
     /**
@@ -220,6 +264,8 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 Timber.d("HomeViewModel: Starting device discovery")
+                Timber.d("HomeViewModel: Context available: ${context != null}")
+                Timber.d("HomeViewModel: Context class: ${context?.javaClass?.simpleName}")
 
                 // Clear existing devices and show discovering state
                 _uiState.value = _uiState.value.copy(
@@ -228,19 +274,30 @@ class HomeViewModel @Inject constructor(
                     errorMessage = null
                 )
 
+                // Validate context before service call
+                if (context == null) {
+                    throw IllegalStateException("Context is null - cannot start BlastService")
+                }
+
+                Timber.i("HomeViewModel: Calling BlastService.discoverDevices() with context: ${context}")
+
                 // Start discovery-only operation
                 BlastService.discoverDevices(
                     context = context,
                     discoveryTimeoutMs = 4000L // 4 second discovery timeout
                 )
 
-                Timber.i("HomeViewModel: Device discovery started")
+                Timber.i("HomeViewModel: Device discovery started - BlastService.discoverDevices() call completed")
+
+                // Wait a moment to see if service starts
+                kotlinx.coroutines.delay(1000)
+                Timber.d("HomeViewModel: 1 second after service start request")
 
             } catch (e: Exception) {
                 Timber.e(e, "HomeViewModel: Error starting device discovery")
                 _uiState.value = _uiState.value.copy(
                     blastStage = BlastStage.IDLE,
-                    errorMessage = e.message
+                    errorMessage = "Failed to start discovery: ${e.message}"
                 )
 
                 // Auto-clear error after 5 seconds
@@ -302,6 +359,8 @@ class HomeViewModel @Inject constructor(
 
     /**
      * Update or add a device to the device list.
+     *
+     * DEVICE COUNT SYNC FIX: Update metrics when devices are updated to keep counts synchronized
      */
     private fun updateDevice(device: DiscoveredDevice) {
         val currentDevices = _uiState.value.devices.toMutableList()
@@ -313,14 +372,32 @@ class HomeViewModel @Inject constructor(
             currentDevices.add(device)
         }
 
-        _uiState.value = _uiState.value.copy(devices = currentDevices)
+        // Synchronize metrics with actual device count
+        val currentMetrics = _uiState.value.metrics
+        val updatedMetrics = currentMetrics.copy(
+            totalDevicesFound = currentDevices.size,
+            // Also update attempted connections based on device statuses
+            connectionsAttempted = currentDevices.count {
+                it.status in listOf(DeviceStatus.CONNECTING, DeviceStatus.BLASTING, DeviceStatus.SUCCESS, DeviceStatus.FAILED)
+            },
+            successfulBlasts = currentDevices.count { it.status == DeviceStatus.SUCCESS },
+            failedBlasts = currentDevices.count { it.status == DeviceStatus.FAILED }
+        )
+
+        _uiState.value = _uiState.value.copy(
+            devices = currentDevices,
+            metrics = updatedMetrics
+        )
+
+        Timber.d("HomeViewModel: Device updated. Total devices: ${currentDevices.size}, Device: ${device.name} (${device.status})")
     }
 
     override fun onCleared() {
         super.onCleared()
+        // Unregister broadcast receiver to prevent memory leaks
         try {
-            context.unregisterReceiver(blastReceiver)
-            Timber.d("HomeViewModel: Broadcast receiver unregistered")
+            LocalBroadcastManager.getInstance(context).unregisterReceiver(blastReceiver)
+            Timber.d("HomeViewModel: Local broadcast receiver unregistered")
         } catch (e: Exception) {
             Timber.w(e, "HomeViewModel: Error unregistering broadcast receiver")
         }

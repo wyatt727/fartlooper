@@ -1,6 +1,6 @@
 # ARCHITECTURE.md  
 **Project · Fart-Looper 1.0**  
-_Last update: 2025-01-07 - DISCOVERY-ONLY MODE ADDED_
+_Last update: 2025-01-08 - DISCOVERY METRICS & FRIENDLY NAMES ENHANCEMENT_
 
 ---
 
@@ -319,7 +319,7 @@ The PortScanDiscoverer probes IPs in ARP/neigh with this ordered list:
 5. **Android Evolution:** New versions regularly introduce breaking permission changes
 
 ### 12.5 Current Project Status (v1.1.1+)
-**BACKEND SUCCESS ✅ / UI RESTORED ✅ / DISCOVERY-ONLY ADDED ✅**
+**BACKEND SUCCESS ✅ / UI RESTORED ✅ / DISCOVERY-ONLY ADDED ✅ / METRICS ENHANCED 🔄**
 
 #### Backend Achievements
 - **Sonos Integration**: Confirmed working with devices at 192.168.4.152:1400
@@ -334,6 +334,15 @@ The PortScanDiscoverer probes IPs in ARP/neigh with this ordered list:
 - **✅ Progressive UX**: Explore network devices before committing to audio playback
 - **✅ Extended Discovery**: 4-second timeout for comprehensive device detection
 - **✅ State Integration**: Seamless integration with existing BlastStage state flow
+
+#### Recent Metrics & Friendly Names Enhancements 🔄
+- **🔄 Discovery Method Efficiency**: Enhanced BlastService to track per-method device discovery statistics (SSDP, mDNS, PortScan)
+- **🔄 Real-time Metrics Broadcast**: Added ssdpDevicesFound, mdnsDevicesFound, portScanDevicesFound to BlastMetrics
+- **🔄 Friendly Name Preservation**: Improved device deduplication logic to prioritize SSDP-discovered friendly names
+- **🔄 Enhanced PortScan Naming**: Better friendly name generation based on known port patterns
+- **🔄 SSDP XML Fetching**: Attempted actual device description parsing for authentic friendly names
+
+**Note:** Recent metrics and friendly name improvements are in testing phase - some enhancements may require additional validation.
 
 #### User Experience Improvements
 - **Device Exploration**: Users can see available devices without side effects
@@ -356,7 +365,64 @@ This update demonstrates successful **iterative enhancement**:
 
 ---
 
-## 13 · Acknowledgements
+## 13 · Recent Enhancements: Discovery Metrics & Friendly Names (v1.1.2+)
+
+### 13.1 Discovery Method Efficiency Tracking
+**Enhancement:** BlastService now tracks which discovery method finds which devices and populates real-time DiscoveryMethodStats.
+
+**Implementation:**
+- Per-method device counting during discovery (SSDP, mDNS, PortScan)
+- Real-time metrics broadcast with method-specific statistics
+- MetricsOverlay integration for discovery method breakdown visualization
+- Enhanced BlastMetrics structure with DiscoveryMethodStats field
+
+**Performance Impact:**
+- Discovery method effectiveness now visible in real-time
+- Users can see which discovery methods work best in their environment
+- Network performance diagnostics improved
+
+### 13.2 Friendly Name Preservation & Enhancement
+**Enhancement:** Improved device naming to preserve authentic friendly names from SSDP discovery over generic PortScan names.
+
+**Implementation:**
+- Enhanced device deduplication logic prioritizing SSDP > mDNS > PortScan names
+- PortScanDiscoverer generates descriptive names based on known port patterns
+- SSDP XML description fetching for authentic device friendly names
+- Smart device replacement logic to preserve better names
+
+**User Experience Impact:**
+- Devices show proper names like "Sonos Speaker" instead of "Device at 192.168.4.152"
+- Better device identification and selection
+- Reduced confusion in device list
+
+### 13.3 Technical Implementation Details
+**BlastService Enhancements:**
+- Added `finalDiscoveryMethodStats` tracking variable
+- Enhanced `discoverDevices()` method with per-method statistics
+- Improved broadcast communication including discovery method data
+- Fixed convenience overload to preserve discovery statistics
+
+**HomeViewModel Integration:**
+- Updated broadcast receiver to handle new discovery method statistics
+- Enhanced DiscoveryMethodStats import and processing
+- Real-time UI updates for discovery method efficiency
+
+**SSDP Improvements:**
+- Added `fetchActualFriendlyName()` function for XML description parsing
+- Enhanced device type detection and friendly name generation
+- Improved error handling for device description retrieval
+
+### 13.4 Validation Status
+**Testing Results:**
+- ✅ **Build Success**: All enhancements compile without errors
+- ✅ **Service Integration**: Discovery method tracking working correctly
+- ✅ **UI Integration**: MetricsOverlay receiving and displaying new statistics
+- 🔄 **Live Validation**: Full end-to-end testing of metrics accuracy ongoing
+- 🔄 **Friendly Name Testing**: Validation of improved device naming in progress
+
+---
+
+## 14 · Acknowledgements
 
 **Working Libraries:** NanoHTTPD, jMDNS, Accompanist, Material 3, Timber  
 **Manual Implementations:** SSDP Discovery, UPnP SOAP, Device Detection

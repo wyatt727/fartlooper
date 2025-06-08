@@ -82,13 +82,17 @@ class PortScanDiscoverer @Inject constructor() : DeviceDiscoverer {
                 if (isPortOpen(ip, port, 200)) { // 200ms timeout per port
                     Timber.d("PortScan Discovery: Found open port $ip:$port")
 
+                    // Generate better friendly names based on known port patterns
+                    val friendlyName = generateFriendlyName(ip, port)
+                    val deviceType = inferDeviceType(port)
+
                     // Create a basic device entry for any responsive port
                     val device = UpnpDevice(
-                        friendlyName = "Device at $ip:$port",
+                        friendlyName = friendlyName,
                         ipAddress = ip,
                         port = port,
                         controlUrl = "/",
-                        deviceType = "Unknown-PortScan",
+                        deviceType = deviceType,
                         manufacturer = "Unknown",
                         udn = "portscan-$ip-$port",
                         discoveryMethod = "PortScan"
@@ -100,6 +104,35 @@ class PortScanDiscoverer @Inject constructor() : DeviceDiscoverer {
             } catch (e: Exception) {
                 // Ignore individual port scan failures
             }
+        }
+    }
+
+    /**
+     * Generate a more descriptive friendly name based on port patterns
+     */
+    private fun generateFriendlyName(ip: String, port: Int): String {
+        return when (port) {
+            8008, 8009 -> "Chromecast at $ip"
+            1400 -> "Sonos Speaker at $ip"
+            3400, 3401 -> "Sonos Device at $ip"
+            7000, 7001 -> "DLNA Device at $ip"
+            49152, 49153, 49154 -> "UPnP Device at $ip"
+            8080 -> "HTTP Media Server at $ip"
+            8200, 9080 -> "Media Device at $ip"
+            else -> "Network Device at $ip:$port"
+        }
+    }
+
+    /**
+     * Infer device type based on port patterns
+     */
+    private fun inferDeviceType(port: Int): String {
+        return when (port) {
+            8008, 8009 -> "CHROMECAST"
+            1400, 3400, 3401 -> "SONOS"
+            7000, 7001, 49152, 49153, 49154 -> "UPNP"
+            8080, 8200, 9080 -> "HTTP_MEDIA"
+            else -> "Unknown-PortScan"
         }
     }
 
