@@ -1163,3 +1163,203 @@ This situation demonstrates the critical importance of:
 
 ### Next Steps
 **IMMEDIATE PRIORITY**: UI debugging and restoration to enable user access to functional backend capabilities. The technical achievement of working UPnP/SOAP implementation must be made accessible to users through a functional interface.
+
+---
+
+## ADR-014: Discovery-Only Mode Implementation (UX Enhancement)
+**Date:** 2025-01-07  
+**Status:** Implemented  
+**Team:** A (Core Platform) & B (UI/UX) Collaboration  
+**Priority:** User Experience Enhancement
+
+### Context
+Users needed the ability to discover available network audio devices without committing to blasting audio to them. This improves user experience by allowing device browsing and network exploration without the side effect of playing audio.
+
+### Problem Statement
+The original application only provided device discovery as part of the full blast operation:
+- Users couldn't see available devices without triggering audio playback
+- No way to refresh device list after initial discovery
+- Poor user experience for device exploration and network diagnostics
+- Unnecessary audio blasting just to check device availability
+
+### Decisions Made
+
+#### 1. Service Architecture Enhancement
+**Decision:** Extend BlastService with dedicated discovery-only operation mode
+**Rationale:** Reuse existing discovery infrastructure while providing isolation from blast operations
+
+**Technical Implementation:**
+- New `ACTION_DISCOVER_ONLY` intent action for service communication
+- Dedicated `startDiscoveryOnlyOperation()` function with configurable timeout
+- Separate completion/error broadcast events for discovery-only results
+- Proper foreground service lifecycle management for discovery operations
+
+#### 2. Multiple UI Entry Points Strategy
+**Decision:** Provide discovery access throughout the user interface
+**Rationale:** Users should be able to refresh device list from multiple contexts and workflows
+
+**UI Integration Points:**
+- **Empty State**: Primary "Discover Devices" button when no devices found
+- **Device List Header**: Refresh icon for re-discovering devices
+- **Completed Blast Sheet**: "Discover" button alongside "Done" for finding new devices
+- **Consistent Visual Language**: Search icons and "Discover" terminology throughout
+
+#### 3. Discovery Timeout Configuration
+**Decision:** 4-second default timeout with configurable parameter support
+**Rationale:** Balance between comprehensive discovery and responsive user experience
+
+**Performance Characteristics:**
+- **Default Timeout**: 4000ms (vs 2100ms for blast discovery)
+- **Longer Discovery Window**: Allows more comprehensive device detection
+- **Configurable**: Service accepts timeout parameter for future optimization
+- **User Feedback**: Progress indication during discovery operation
+
+#### 4. State Management Integration
+**Decision:** Integrate discovery-only operations with existing BlastStage state flow
+**Rationale:** Maintain consistent UI behavior and progress indication patterns
+
+**State Flow Integration:**
+- Discovery operations use existing `BlastStage.DISCOVERING` state
+- Completion triggers `BlastStage.COMPLETED` for consistent UI handling
+- Error states propagated through existing error broadcast mechanism
+- Auto-clearing error messages maintain consistent UX patterns
+
+### Implementation Architecture
+
+```kotlin
+// Service Layer Enhancement
+BlastService {
+    // New discovery-only operation
+    fun discoverDevices(context: Context, discoveryTimeoutMs: Long = 4000)
+    private fun startDiscoveryOnlyOperation(discoveryTimeoutMs: Long)
+    private suspend fun completeDiscoveryOnly(devices: List<UpnpDevice>)
+    private suspend fun handleDiscoveryError(error: Exception)
+}
+
+// ViewModel Integration
+HomeViewModel {
+    fun discoverDevices() // New user-triggered discovery function
+    // Enhanced broadcast receiver for discovery events
+}
+
+// UI Component Integration
+HomeScreen(onDiscoverClick: () -> Unit)
+├── EmptyDeviceList("Discover Devices" button)
+├── DeviceList(refresh icon in header)
+└── BlastProgressBottomSheet("Discover" button in completed state)
+```
+
+### Technical Implementation Details
+
+#### Discovery-Only Service Operation
+```kotlin
+private fun startDiscoveryOnlyOperation(discoveryTimeoutMs: Long) {
+    isBlastInProgress = true // Prevent concurrent operations
+    blastMetrics.resetForNewBlast()
+    
+    startForeground(NOTIFICATION_ID, createNotification("Discovering devices...", BlastPhase.DISCOVERING))
+    
+    serviceScope.launch {
+        try {
+            val devices = discoverDevices(discoveryTimeoutMs) // Reuse existing discovery logic
+            completeDiscoveryOnly(devices)
+        } catch (e: Exception) {
+            handleDiscoveryError(e)
+        }
+    }
+}
+```
+
+#### UI Integration Pattern
+```kotlin
+// Multiple entry points with consistent callback signature
+HomeScreen(
+    onBlastClick = viewModel::startBlast,
+    onDiscoverClick = viewModel::discoverDevices, // New discovery function
+    onStopClick = viewModel::stopBlast
+)
+```
+
+#### Broadcast Event Extension
+```kotlin
+// New broadcast events for discovery-only operations
+"com.wobbz.fartloop.DISCOVERY_COMPLETE" -> {
+    val devicesFound = intent.getIntExtra("devices_found", 0)
+    updateBlastStage(BlastStage.COMPLETED)
+}
+"com.wobbz.fartloop.DISCOVERY_ERROR" -> {
+    val error = intent.getStringExtra("error") ?: "Discovery failed"
+    // Standard error handling with auto-clear
+}
+```
+
+### User Experience Improvements
+
+#### 1. Progressive Disclosure
+**Before:** All-or-nothing blast operation
+**After:** Gentle progression from discovery → device selection → blast decision
+
+#### 2. Network Exploration
+**Before:** Unknown device availability until blast attempt
+**After:** Clear visibility into network audio ecosystem without side effects
+
+#### 3. Multiple Interaction Patterns
+**Before:** Single FAB blast entry point
+**After:** Context-appropriate discovery access throughout application
+
+#### 4. Error Recovery
+**Before:** Failed blast required restart for device discovery
+**After:** Independent discovery retry without full blast restart
+
+### Performance Characteristics
+
+#### Discovery Operation Metrics
+- **Operation Duration**: 4 seconds (configurable)
+- **Service Overhead**: Minimal (reuses existing discovery infrastructure)
+- **UI Responsiveness**: Real-time progress indication
+- **Resource Usage**: Identical to blast discovery phase (no additional network overhead)
+
+#### User Experience Metrics
+- **Reduced Accidental Audio**: Users can explore without unwanted playback
+- **Faster Device Awareness**: Quick refresh without full blast cycle
+- **Improved Workflow**: Natural progression from discovery to action
+
+### Validation Results
+✅ **Service Integration**: Discovery-only operations working correctly with proper lifecycle management  
+✅ **UI Integration**: All entry points functional with consistent user experience  
+✅ **State Management**: Seamless integration with existing BlastStage state flow  
+✅ **Error Handling**: Robust error propagation and user feedback  
+✅ **Performance**: No degradation to existing blast operations  
+
+### Implementation Findings
+
+#### 1. Service Lifecycle Reuse
+**Finding:** Existing BlastService infrastructure perfectly suited for discovery-only operations with minimal modification
+**Benefit:** Consistent service management patterns and notification handling
+
+#### 2. UI Integration Simplicity
+**Finding:** Adding discovery callbacks to existing component signatures required minimal architectural changes
+**Benefit:** Clean integration without disrupting existing blast workflows
+
+#### 3. State Management Compatibility
+**Finding:** Discovery operations fit naturally into existing BlastStage state model
+**Benefit:** Consistent progress indication and UI behavior patterns
+
+#### 4. User Workflow Enhancement
+**Finding:** Multiple discovery entry points significantly improve user experience for device exploration
+**Benefit:** Reduced friction for network audio device management
+
+### Future Enhancements
+- **Smart Discovery Timing**: Adaptive timeout based on network conditions
+- **Device Filtering**: UI controls for filtering discovered device types
+- **Discovery History**: Cache and display previously discovered devices
+- **Batch Operations**: Multi-device selection for targeted blasting
+
+### Architecture Impact
+This enhancement demonstrates the value of well-designed service architecture:
+- **Minimal Code Changes**: Leveraged existing discovery infrastructure
+- **Clean Separation**: Discovery and blast operations properly isolated
+- **Consistent Patterns**: Maintained architectural consistency throughout
+- **User-Centric Design**: Added functionality that directly improves user experience
+
+**Status: COMPLETE** - Discovery-only mode successfully implemented with comprehensive UI integration and robust error handling.

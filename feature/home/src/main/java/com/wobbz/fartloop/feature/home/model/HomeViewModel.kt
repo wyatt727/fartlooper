@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wobbz.fartloop.core.blast.BlastService
@@ -137,7 +138,13 @@ class HomeViewModel @Inject constructor(
             addAction("com.wobbz.fartloop.DISCOVERY_COMPLETE")
             addAction("com.wobbz.fartloop.DISCOVERY_ERROR")
         }
-        context.registerReceiver(blastReceiver, filter)
+
+        // ANDROID 14+ FIX: Specify RECEIVER_NOT_EXPORTED for internal app broadcasts
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(blastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(blastReceiver, filter)
+        }
         Timber.d("HomeViewModel: Broadcast receiver registered for BlastService updates")
     }
 

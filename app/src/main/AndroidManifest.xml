@@ -10,6 +10,10 @@
     <!-- ACCESS_NETWORK_STATE: Monitor WiFi connectivity changes for NetworkCallbackUtil -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- WIFI STATE FINDING: WiFi SSID detection required for network rule evaluation -->
+    <!-- ACCESS_WIFI_STATE: Read WiFi connection info for NetworkCallbackUtil SSID detection -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
     <!-- MULTICAST FINDING: SSDP and mDNS discovery require multicast packet reception -->
     <!-- CHANGE_WIFI_MULTICAST_STATE: Enable SSDP (UDP 1900) and mDNS (UDP 5353) discovery -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
