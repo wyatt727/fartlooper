@@ -1,9 +1,11 @@
 package com.wobbz.fartloop.core.network
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
@@ -27,6 +29,14 @@ class SsdpDiscoverer @Inject constructor() {
     // Cache for device information extracted from XML descriptions
     private val deviceInfoCache = mutableMapOf<String, Map<String, String>>()
 
+    // Callback for device updates when XML parsing completes
+    private var deviceUpdateCallback: ((UpnpDevice) -> Unit)? = null
+
+    // Track XML parsing progress for UI progress bars
+    private var xmlParsingInProgress = mutableSetOf<String>()
+    private var xmlParsingCompleted = mutableSetOf<String>()
+    private var xmlParsingCallback: ((totalParsing: Int, completed: Int) -> Unit)? = null
+
     companion object {
         private const val SSDP_ADDRESS = "239.255.255.250"
         private const val SSDP_PORT = 1900
@@ -39,6 +49,20 @@ class SsdpDiscoverer @Inject constructor() {
             "MAN: \"ssdp:discover\"\r\n" +
             "ST: upnp:rootdevice\r\n" +
             "MX: 3\r\n\r\n"
+    }
+
+    /**
+     * Set callback for device updates when XML parsing completes with real control URLs
+     */
+    fun setDeviceUpdateCallback(callback: (UpnpDevice) -> Unit) {
+        deviceUpdateCallback = callback
+    }
+
+    /**
+     * Set callback for XML parsing progress updates
+     */
+    fun setXmlParsingProgressCallback(callback: (totalParsing: Int, completed: Int) -> Unit) {
+        xmlParsingCallback = callback
     }
 
     /**
@@ -177,16 +201,14 @@ class SsdpDiscoverer @Inject constructor() {
             val deviceType = determineDeviceType(server, usn, location)
             val friendlyName = generateFriendlyName(deviceType, deviceIp ?: "unknown", server, location)
 
-                        // CONTROL URL FINDING: Parse actual control URL from device description XML
-            val parsedControlUrl = parseActualControlUrl(location)
-            val controlUrl = parsedControlUrl ?: getFallbackControlUrl(deviceType)
+                        // CONTROL URL FINDING: Use fallback immediately for fast discovery
+            // XML parsing will happen asynchronously in background
+            val controlUrl = getFallbackControlUrl(deviceType)
 
-            Timber.i("SsdpDiscoverer: Device ${deviceIp}:${port} -> Control URL: '$controlUrl' (from ${if (parsedControlUrl != null) "XML" else "fallback"})")
+            Timber.i("SsdpDiscoverer: Device ${deviceIp}:${port} -> Control URL: '$controlUrl' (fallback, XML parsing async)")
 
-            // Get cached device information if available
-            val cachedDeviceInfo = location?.let { deviceInfoCache[it] } ?: emptyMap()
-
-            return UpnpDevice(
+            // Create device immediately with fallback control URL
+            val device = UpnpDevice(
                 friendlyName = friendlyName,
                 ipAddress = deviceIp,
                 port = port,
@@ -195,8 +217,15 @@ class SsdpDiscoverer @Inject constructor() {
                 manufacturer = extractManufacturer(server),
                 udn = usn,
                 discoveryMethod = "SSDP",
-                metadata = cachedDeviceInfo
+                metadata = emptyMap() // Will be populated asynchronously
             )
+
+            // Start asynchronous XML parsing to enhance device info later
+            location?.let { locationUrl ->
+                parseDeviceXmlAsync(device, locationUrl)
+            }
+
+            return device
 
         } catch (e: Exception) {
             Timber.w(e, "SsdpDiscoverer: Failed to parse SSDP response from $deviceIp")
@@ -272,6 +301,79 @@ class SsdpDiscoverer @Inject constructor() {
     }
 
     /**
+     * ASYNCHRONOUS XML PARSING: Parse device XML in background without blocking discovery.
+     *
+     * PERFORMANCE OPTIMIZATION: This allows SSDP discovery to proceed quickly while
+     * device enhancement happens in parallel. Devices appear immediately with fallback
+     * control URLs, then get enhanced with real XML data when available.
+     *
+     * TODO FIX: Now broadcasts device updates when real control URLs are found
+     */
+    private fun parseDeviceXmlAsync(device: UpnpDevice, locationUrl: String) {
+        // Track this XML parsing operation
+        xmlParsingInProgress.add(locationUrl)
+        xmlParsingCallback?.invoke(xmlParsingInProgress.size, xmlParsingCompleted.size)
+
+        // Launch in background thread to avoid blocking discovery
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Timber.d("SsdpDiscoverer: [ASYNC] Fetching device description from $locationUrl")
+
+                val url = URL(locationUrl)
+                val connection = url.openConnection()
+                connection.connectTimeout = 5000 // Longer timeout since it's async
+                connection.readTimeout = 5000
+
+                val xmlContent = connection.getInputStream().bufferedReader().readText()
+
+                // Parse XML to find actual control URL and device info
+                val actualControlUrl = extractAVTransportControlUrl(xmlContent)
+                val deviceInfo = extractDeviceInformation(xmlContent)
+
+                // Store in cache for Device Info dialog
+                deviceInfoCache[locationUrl] = deviceInfo
+
+                // If we found a better control URL, update the device and broadcast
+                if (actualControlUrl != null && actualControlUrl != device.controlUrl) {
+                    Timber.i("SsdpDiscoverer: [ASYNC] ✅ Found real control URL: '$actualControlUrl' for ${device.friendlyName}")
+
+                    // Create updated device with real control URL and metadata
+                    val updatedDevice = device.copy(
+                        controlUrl = actualControlUrl,
+                        metadata = deviceInfo
+                    )
+
+                    // Broadcast device update to BlastService
+                    deviceUpdateCallback?.invoke(updatedDevice)
+
+                } else {
+                    Timber.d("SsdpDiscoverer: [ASYNC] Using fallback control URL for ${device.friendlyName}")
+
+                    // Still update with metadata even if control URL unchanged
+                    if (deviceInfo.isNotEmpty()) {
+                        val updatedDevice = device.copy(metadata = deviceInfo)
+                        deviceUpdateCallback?.invoke(updatedDevice)
+                    }
+                }
+
+                Timber.d("SsdpDiscoverer: [ASYNC] Extracted ${deviceInfo.size} metadata fields for ${device.friendlyName}")
+
+            } catch (e: Exception) {
+                Timber.w(e, "SsdpDiscoverer: [ASYNC] Failed to parse device XML for ${device.friendlyName}")
+                // Store error info for debugging
+                deviceInfoCache[locationUrl] = mapOf("parseError" to (e.message ?: "Unknown error"))
+            } finally {
+                // Mark this XML parsing as complete
+                xmlParsingInProgress.remove(locationUrl)
+                xmlParsingCompleted.add(locationUrl)
+                xmlParsingCallback?.invoke(xmlParsingInProgress.size, xmlParsingCompleted.size)
+
+                Timber.d("SsdpDiscoverer: [ASYNC] XML parsing progress: ${xmlParsingInProgress.size} remaining, ${xmlParsingCompleted.size} completed")
+            }
+        }
+    }
+
+    /**
      * ACTUAL CONTROL URL PARSING: Parse the real control URL from device description XML.
      *
      * UPnP SPECIFICATION COMPLIANCE: According to UPnP spec, devices must advertise their
@@ -301,7 +403,7 @@ class SsdpDiscoverer @Inject constructor() {
             connection.connectTimeout = 3000 // 3 second timeout for XML fetch
             connection.readTimeout = 3000
 
-                                    val xmlContent = connection.getInputStream().bufferedReader().readText()
+            val xmlContent = connection.getInputStream().bufferedReader().readText()
 
             // Log XML for debugging (first 500 chars to avoid spam)
             Timber.d("SsdpDiscoverer: Device XML preview: ${xmlContent.take(500)}...")

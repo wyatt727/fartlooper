@@ -232,23 +232,35 @@ private fun BlastPipelineStages(
         PipelineStageItem(
             icon = Icons.Default.Search,
             title = "Device Discovery",
-            description = "SSDP, mDNS & port scanning",
+            description = "SSDP, mDNS & port scanning + XML parsing",
             isActive = currentStage == BlastStage.DISCOVERING,
             isComplete = currentStage.ordinal > BlastStage.DISCOVERING.ordinal,
             progress = when {
                 currentStage == BlastStage.DISCOVERING -> {
-                    // Calculate progress based on discovery time and devices found
+                    // Base time progress (moves continuously during discovery)
                     val timeProgress = if (metrics.discoveryTimeMs > 0) {
-                        (metrics.discoveryTimeMs.toFloat() / 4000f).coerceIn(0f, 0.9f) // Max 90% for time
-                    } else 0.3f // Initial progress
+                        // Progress increases smoothly from 0.2 to 0.7 over 4 seconds
+                        val timeRatio = (metrics.discoveryTimeMs.toFloat() / 4000f).coerceIn(0f, 1f)
+                        0.2f + (timeRatio * 0.5f) // 20% to 70% based on time
+                    } else 0.2f // Start with 20% progress immediately
 
-                    val deviceProgress = if (metrics.totalDevicesFound > 0) {
-                        // Add bonus progress for devices found (10% per device, max 50% bonus)
-                        val deviceBonus = (metrics.totalDevicesFound * 0.1f).coerceIn(0f, 0.5f)
-                        timeProgress + deviceBonus
-                    } else timeProgress
+                    // Device bonus progress (adds excitement when devices are found)
+                    val deviceBonus = if (metrics.totalDevicesFound > 0) {
+                        // Each device adds 3% progress, max 15% total bonus
+                        (metrics.totalDevicesFound * 0.03f).coerceIn(0f, 0.15f)
+                    } else 0f
 
-                    deviceProgress.coerceIn(0.3f, 0.95f) // Keep between 30-95% during discovery
+                    // XML parsing progress (fills remaining progress as parsing completes)
+                    val xmlProgress = if (metrics.xmlParsingInProgress + metrics.xmlParsingCompleted > 0) {
+                        // XML parsing contributes final 15% of progress
+                        metrics.xmlParsingProgress * 0.15f
+                    } else 0f
+
+                    // Combine all progress components
+                    val totalProgress = timeProgress + deviceBonus + xmlProgress
+
+                    // Ensure progress moves smoothly and never goes backwards
+                    totalProgress.coerceIn(0.2f, 0.98f) // Keep between 20-98% during discovery
                 }
                 currentStage.ordinal > BlastStage.DISCOVERING.ordinal -> 1.0f
                 else -> 0.0f

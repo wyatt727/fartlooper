@@ -49,13 +49,17 @@ class JmDNSDiscoverer @Inject constructor() : DeviceDiscoverer {
                     if (info != null) {
                         Timber.d("jMDNS Discovery: Service resolved - ${info.name} at ${info.hostAddresses?.firstOrNull()}")
 
+                        // Determine device type and appropriate control URL from service type
+                        val deviceType = mapServiceTypeToDeviceType(info.type)
+                        val controlUrl = getFallbackControlUrl(info.port, deviceType)
+
                         // Convert jMDNS service info to UpnpDevice
                         val device = UpnpDevice(
                             friendlyName = info.name ?: "Unknown mDNS Device",
                             ipAddress = info.hostAddresses?.firstOrNull() ?: "unknown",
                             port = info.port,
-                            controlUrl = "/",
-                            deviceType = info.type ?: "Unknown",
+                            controlUrl = controlUrl,
+                            deviceType = deviceType,
                             discoveryMethod = "mDNS"
                         )
 
@@ -80,5 +84,30 @@ class JmDNSDiscoverer @Inject constructor() : DeviceDiscoverer {
         }
 
         close()
+    }
+
+    /**
+     * Map mDNS service type to device type string
+     */
+    private fun mapServiceTypeToDeviceType(serviceType: String?): String {
+        return when {
+            serviceType?.contains("airplay", ignoreCase = true) == true -> "AIRPLAY"
+            serviceType?.contains("chromecast", ignoreCase = true) == true -> "CHROMECAST"
+            serviceType?.contains("upnp", ignoreCase = true) == true -> "UNKNOWN_UPNP"
+            serviceType?.contains("http", ignoreCase = true) == true -> "UNKNOWN_UPNP"
+            else -> "UNKNOWN_UPNP"
+        }
+    }
+
+    /**
+     * Get fallback control URL based on port and device type
+     */
+    private fun getFallbackControlUrl(port: Int, deviceType: String): String {
+        return when {
+            deviceType == "AIRPLAY" -> "/airplay/control"
+            deviceType == "CHROMECAST" || port in listOf(8008, 8009) -> "/setup/eureka_info"
+            port == 1400 -> "/MediaRenderer/AVTransport/Control" // Sonos
+            else -> "/upnp/control/AVTransport1" // Default UPnP
+        }
     }
 }

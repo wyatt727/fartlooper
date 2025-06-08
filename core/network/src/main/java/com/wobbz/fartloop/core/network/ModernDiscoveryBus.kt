@@ -21,6 +21,11 @@ class ModernDiscoveryBus @Inject constructor(
 ) {
 
     /**
+     * Get access to the SSDP discoverer for setting callbacks
+     */
+    fun getSsdpDiscoverer(): SsdpDiscoverer = ssdpDiscoverer
+
+    /**
      * Discover all devices using multiple discovery methods.
      *
      * DISCOVERY STRATEGY: Runs SSDP, mDNS, and port scan discovery in parallel,

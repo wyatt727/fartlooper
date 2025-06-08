@@ -80,6 +80,10 @@ data class BlastMetrics(
     val averageLatencyMs: Long = 0L,        // Average SOAP response time
     val isRunning: Boolean = false,         // Whether blast is currently active
 
+    // XML Parsing progress (continues after discovery completes)
+    val xmlParsingInProgress: Int = 0,      // Number of devices still being parsed for metadata
+    val xmlParsingCompleted: Int = 0,       // Number of devices with completed XML parsing
+
     // Enhanced metrics for detailed performance analysis
     val deviceResponseTimes: Map<String, Long> = emptyMap(),        // Device ID -> response time in ms
     val successRateByManufacturer: Map<String, Float> = emptyMap(), // Manufacturer -> success ratio (0.0-1.0)
@@ -99,6 +103,13 @@ data class BlastMetrics(
      * Total blast time for progress tracking
      */
     val totalBlastTimeMs: Long get() = httpStartupMs + discoveryTimeMs + averageLatencyMs
+
+    /**
+     * Calculate XML parsing progress ratio (0.0 to 1.0)
+     */
+    val xmlParsingProgress: Float get() = if (xmlParsingInProgress + xmlParsingCompleted > 0) {
+        xmlParsingCompleted.toFloat() / (xmlParsingInProgress + xmlParsingCompleted).toFloat()
+    } else 1.0f // Consider complete if no XML parsing needed
 
     /**
      * Get the fastest responding device (for performance insights)

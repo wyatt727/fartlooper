@@ -85,13 +85,14 @@ class PortScanDiscoverer @Inject constructor() : DeviceDiscoverer {
                     // Generate better friendly names based on known port patterns
                     val friendlyName = generateFriendlyName(ip, port)
                     val deviceType = inferDeviceType(port)
+                    val controlUrl = getFallbackControlUrl(port)
 
                     // Create a basic device entry for any responsive port
                     val device = UpnpDevice(
                         friendlyName = friendlyName,
                         ipAddress = ip,
                         port = port,
-                        controlUrl = "/",
+                        controlUrl = controlUrl,
                         deviceType = deviceType,
                         manufacturer = "Unknown",
                         udn = "portscan-$ip-$port",
@@ -174,6 +175,20 @@ class PortScanDiscoverer @Inject constructor() : DeviceDiscoverer {
         } catch (e: Exception) {
             Timber.e(e, "Error determining local network base")
             null
+        }
+    }
+
+    /**
+     * FALLBACK CONTROL URL: Provide proper fallback control URLs based on port patterns.
+     * Uses the same logic as SsdpDiscoverer for consistency.
+     */
+    private fun getFallbackControlUrl(port: Int): String {
+        return when (port) {
+            8008, 8009 -> "/setup/eureka_info" // Google Cast API endpoint
+            1400, 3400, 3401 -> "/MediaRenderer/AVTransport/Control" // Sonos control URL
+            7000, 7001, 49152, 49153, 49154 -> "/MediaRenderer/AVTransport/Control" // DLNA/UPnP
+            8080, 8200, 9080 -> "/upnp/control/AVTransport1" // Common UPnP control path
+            else -> "/upnp/control/AVTransport1" // Default UPnP control path
         }
     }
 }

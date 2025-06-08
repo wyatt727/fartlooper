@@ -71,8 +71,8 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.timber)
-    implementation(libs.nanohttpd)  // DEPENDENCY FINDING: App module needs NanoHTTPD for HttpServerManager access
-    implementation(libs.compose.material.icons.extended)  // ICON DEPENDENCY: Extended icons for navigation and settings
+    implementation(libs.nanohttpd) // DEPENDENCY FINDING: App module needs NanoHTTPD for HttpServerManager access
+    implementation(libs.compose.material.icons.extended) // ICON DEPENDENCY: Extended icons for navigation and settings
     kapt(libs.hilt.compiler)
 
     // Module dependencies

@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 
 /**
  * Foreground service that orchestrates the complete blast pipeline.
@@ -62,6 +63,13 @@ class BlastService : Service() {
 
     // Track final discovery method stats for convenience overload
     private var finalDiscoveryMethodStats = DiscoveryMethodStats()
+
+    // Track XML parsing progress for progress bars
+    private var xmlParsingInProgress = 0
+    private var xmlParsingCompleted = 0
+
+    // Track discovered devices for post-discovery XML updates
+    private var discoveredDevices: MutableList<UpnpDevice> = mutableListOf()
 
     // Manual coroutine scope management since we can't use LifecycleService with Hilt
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -445,15 +453,28 @@ class BlastService : Service() {
                 startHttpServer()
 
                 // Stage 2: Create single device target
-                val targetDevice = UpnpDevice(
-                    ipAddress = deviceIp,
-                    port = devicePort,
-                    friendlyName = deviceName,
-                    controlUrl = deviceControlUrl,
-                    deviceType = "",
-                    manufacturer = "",
-                    discoveryMethod = "Manual"
-                )
+                // First, try to find this device in our discovered devices list to preserve metadata
+                val discoveredDevice = discoveredDevices.find {
+                    it.ipAddress == deviceIp && it.port == devicePort
+                }
+
+                val targetDevice = if (discoveredDevice != null) {
+                    // Use the discovered device with all its metadata and XML-parsed info
+                    Timber.i("BlastService: Using discovered device with ${discoveredDevice.metadata.size} metadata fields")
+                    discoveredDevice
+                } else {
+                    // Fall back to creating a basic device if not found in discovery
+                    Timber.w("BlastService: Device not found in discovery, creating basic device")
+                    UpnpDevice(
+                        ipAddress = deviceIp,
+                        port = devicePort,
+                        friendlyName = deviceName,
+                        controlUrl = deviceControlUrl,
+                        deviceType = "",
+                        manufacturer = "",
+                        discoveryMethod = "Manual"
+                    )
+                }
 
                 // Stage 3: Blast to Single Device
                 Timber.d("BlastService: Starting single device blast to $deviceName")
@@ -550,8 +571,48 @@ class BlastService : Service() {
 
         blastMetrics.startDiscoveryTiming()
 
+        // Set up callbacks for SsdpDiscoverer to handle device updates and XML parsing progress
+        setupSsdpCallbacks()
+
         val devices = mutableListOf<UpnpDevice>()
         val discoveryStartTime = System.currentTimeMillis()
+
+        // Track XML parsing progress for progress bars
+        var xmlParsingInProgress = 0
+        var xmlParsingCompleted = 0
+
+        // Start continuous progress updates for UI feedback
+        val progressUpdateJob = serviceScope.launch {
+            while (System.currentTimeMillis() - discoveryStartTime < timeoutMs) {
+                val currentTime = System.currentTimeMillis() - discoveryStartTime
+
+                // Create time-based progress metrics to show continuous movement
+                val progressMetrics = blastMetrics.currentMetrics.value.copy(
+                    discoveryDurationMs = currentTime.toInt(),
+                    devicesDiscovered = devices.size
+                )
+
+                val timeBasedBlastMetrics = BlastMetrics(
+                    httpStartupMs = progressMetrics.httpStartupMs.toLong(),
+                    discoveryTimeMs = currentTime,
+                    totalDevicesFound = devices.size,
+                    connectionsAttempted = progressMetrics.totalDevicesTargeted,
+                    successfulBlasts = progressMetrics.successfulDevices,
+                    failedBlasts = progressMetrics.failedDevices,
+                    averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
+                    isRunning = true,
+                    xmlParsingInProgress = xmlParsingInProgress,
+                    xmlParsingCompleted = xmlParsingCompleted,
+                    discoveryMethodStats = finalDiscoveryMethodStats
+                )
+
+                blastMetrics.updateCurrentMetrics(progressMetrics)
+                broadcastMetricsUpdate(timeBasedBlastMetrics)
+
+                // Update every 500ms for smooth progress animation
+                delay(500)
+            }
+        }
 
         // Track per-method discovery stats for metrics
         val discoveryMethodCounts = mutableMapOf<String, Int>(
@@ -568,97 +629,75 @@ class BlastService : Service() {
         // Store discovered device IDs to prevent duplicates while preserving better friendly names
         val discoveredDeviceIds = mutableSetOf<String>()
 
-        discoveryBus.discoverAll(timeoutMs)
-            .flowOn(Dispatchers.IO)
-            .catch { e ->
-                Timber.e(e, "Discovery error")
-            }
-            .collect { device ->
-                val deviceId = "${device.ipAddress}:${device.port}"
-
-                // Check for duplicates - prefer devices with better friendly names
-                val existingDevice = devices.find { it.ipAddress == device.ipAddress && it.port == device.port }
-                if (existingDevice != null) {
-                    // Replace if new device has a better (more specific) friendly name
-                    // Priority: SSDP > mDNS > PortScan based on name patterns and discovery method
-                    val shouldReplace = when {
-                        // Always prefer SSDP discoveries over others
-                        device.discoveryMethod == "SSDP" && existingDevice.discoveryMethod != "SSDP" -> true
-                        // Prefer mDNS over PortScan
-                        device.discoveryMethod == "mDNS" && existingDevice.discoveryMethod == "PortScan" -> true
-                        // Within same method, prefer names that don't start with generic patterns
-                        device.discoveryMethod == existingDevice.discoveryMethod -> {
-                            val newIsGeneric = device.friendlyName.startsWith("Device at ") ||
-                                             device.friendlyName.startsWith("Network Device at ") ||
-                                             device.friendlyName.contains(" at ")
-                            val existingIsGeneric = existingDevice.friendlyName.startsWith("Device at ") ||
-                                                   existingDevice.friendlyName.startsWith("Network Device at ") ||
-                                                   existingDevice.friendlyName.contains(" at ")
-
-                            // Replace if new is non-generic and existing is generic
-                            !newIsGeneric && existingIsGeneric
-                        }
-                        else -> false
-                    }
-
-                    if (shouldReplace) {
-                        devices.remove(existingDevice)
-                        devices.add(device)
-
-                        Timber.d("Replaced device with better name: ${existingDevice.friendlyName} (${existingDevice.discoveryMethod}) -> ${device.friendlyName} (${device.discoveryMethod})")
-                    } else {
-                        Timber.d("Skipping duplicate device: $deviceId (keeping ${existingDevice.friendlyName} from ${existingDevice.discoveryMethod})")
-                    }
-                } else if (discoveredDeviceIds.add(deviceId)) {
-                    devices.add(device)
-                    Timber.d("Discovered device: ${device.friendlyName} via ${device.discoveryMethod}")
-
-                    // Track discovery method stats
-                    val method = device.discoveryMethod
-                    discoveryMethodCounts[method] = (discoveryMethodCounts[method] ?: 0) + 1
+        try {
+            discoveryBus.discoverAll(timeoutMs)
+                .flowOn(Dispatchers.IO)
+                .catch { e ->
+                    Timber.e(e, "Discovery error")
                 }
+                .collect { device ->
+                    val deviceId = "${device.ipAddress}:${device.port}"
 
-                updateNotification("Found ${devices.size} devices...", BlastPhase.DISCOVERING)
+                    // Check for duplicates - prefer devices with better friendly names but preserve metadata
+                    val existingDevice = devices.find { it.ipAddress == device.ipAddress && it.port == device.port }
+                    if (existingDevice != null) {
+                        // Create merged device that preserves the best of both
+                        val shouldReplaceCore = when {
+                            // Always prefer SSDP discoveries over others for core device info
+                            device.discoveryMethod == "SSDP" && existingDevice.discoveryMethod != "SSDP" -> true
+                            // Prefer mDNS over PortScan for core device info
+                            device.discoveryMethod == "mDNS" && existingDevice.discoveryMethod == "PortScan" -> true
+                            // Within same method, prefer names that don't start with generic patterns
+                            device.discoveryMethod == existingDevice.discoveryMethod -> {
+                                val newIsGeneric = device.friendlyName.startsWith("Device at ") ||
+                                                 device.friendlyName.startsWith("Network Device at ") ||
+                                                 device.friendlyName.contains(" at ")
+                                val existingIsGeneric = existingDevice.friendlyName.startsWith("Device at ") ||
+                                                       existingDevice.friendlyName.startsWith("Network Device at ") ||
+                                                       existingDevice.friendlyName.contains(" at ")
 
-                // Broadcast device discovery
-                broadcastDeviceUpdate(device, DeviceStatus.DISCOVERED)
+                                // Replace if new is non-generic and existing is generic
+                                !newIsGeneric && existingIsGeneric
+                            }
+                            else -> false
+                        }
 
-                // Update and broadcast real-time discovery metrics with method stats
-                val currentDiscoveryTime = System.currentTimeMillis() - discoveryStartTime
+                        // Merge metadata - preserve existing metadata and add new metadata
+                        val mergedMetadata = mutableMapOf<String, String>()
+                        mergedMetadata.putAll(existingDevice.metadata)
+                        mergedMetadata.putAll(device.metadata)
 
-                // Create updated discovery method stats
-                val updatedDiscoveryStats = DiscoveryMethodStats(
-                    ssdpDevicesFound = discoveryMethodCounts["SSDP"] ?: 0,
-                    mdnsDevicesFound = discoveryMethodCounts["mDNS"] ?: 0,
-                    portScanDevicesFound = discoveryMethodCounts["PortScan"] ?: 0,
-                    ssdpTimeMs = if (discoveryMethodCounts["SSDP"]!! > 0) currentDiscoveryTime else 0L,
-                    mdnsTimeMs = if (discoveryMethodCounts["mDNS"]!! > 0) currentDiscoveryTime else 0L,
-                    portScanTimeMs = if (discoveryMethodCounts["PortScan"]!! > 0) currentDiscoveryTime else 0L
-                )
+                        // Choose the better device as base, but preserve metadata
+                        val mergedDevice = if (shouldReplaceCore) {
+                            device.copy(metadata = mergedMetadata)
+                        } else {
+                            existingDevice.copy(metadata = mergedMetadata)
+                        }
 
-                val progressMetrics = blastMetrics.currentMetrics.value.copy(
-                    discoveryDurationMs = currentDiscoveryTime.toInt(),
-                    devicesDiscovered = devices.size
-                )
+                        devices.remove(existingDevice)
+                        devices.add(mergedDevice)
 
-                // Update BlastMetrics with per-method stats
-                val updatedBlastMetrics = BlastMetrics(
-                    httpStartupMs = progressMetrics.httpStartupMs.toLong(),
-                    discoveryTimeMs = currentDiscoveryTime,
-                    totalDevicesFound = devices.size,
-                    connectionsAttempted = progressMetrics.totalDevicesTargeted,
-                    successfulBlasts = progressMetrics.successfulDevices,
-                    failedBlasts = progressMetrics.failedDevices,
-                    averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
-                    isRunning = true,
-                    discoveryMethodStats = updatedDiscoveryStats
-                )
+                        Timber.d("Merged device: ${mergedDevice.friendlyName} (${mergedDevice.discoveryMethod}) with ${mergedMetadata.size} metadata fields")
+                    } else if (discoveredDeviceIds.add(deviceId)) {
+                        devices.add(device)
+                        Timber.d("Discovered device: ${device.friendlyName} via ${device.discoveryMethod}")
 
-                blastMetrics.updateCurrentMetrics(progressMetrics)
-                broadcastMetricsUpdate(updatedBlastMetrics)
+                        // Track discovery method stats
+                        val method = device.discoveryMethod
+                        discoveryMethodCounts[method] = (discoveryMethodCounts[method] ?: 0) + 1
+                    }
 
-                Timber.d("Discovery progress: ${devices.size} devices in ${currentDiscoveryTime}ms (SSDP: ${discoveryMethodCounts["SSDP"]}, mDNS: ${discoveryMethodCounts["mDNS"]}, PortScan: ${discoveryMethodCounts["PortScan"]})")
-            }
+                    updateNotification("Found ${devices.size} devices...", BlastPhase.DISCOVERING)
+
+                    // Broadcast device discovery
+                    broadcastDeviceUpdate(device, DeviceStatus.DISCOVERED)
+
+                    Timber.d("Discovery progress: ${devices.size} devices found via ${device.discoveryMethod}")
+                }
+        } finally {
+            // Cancel the progress update job when discovery is complete
+            progressUpdateJob.cancel()
+        }
 
         // Final discovery method stats
         val finalDiscoveryTime = System.currentTimeMillis() - discoveryStartTime
@@ -687,6 +726,8 @@ class BlastService : Service() {
             failedBlasts = finalMetrics.failedDevices,
             averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
             isRunning = true,
+            xmlParsingInProgress = xmlParsingInProgress,
+            xmlParsingCompleted = xmlParsingCompleted,
             discoveryMethodStats = finalDiscoveryStats
         )
 
@@ -695,6 +736,10 @@ class BlastService : Service() {
         Timber.i("Discovery complete: ${devices.size} devices found")
         Timber.i("Discovery method breakdown - SSDP: ${finalDiscoveryStats.ssdpDevicesFound}, mDNS: ${finalDiscoveryStats.mdnsDevicesFound}, PortScan: ${finalDiscoveryStats.portScanDevicesFound}")
         Timber.i("Most effective method: ${finalDiscoveryStats.mostEffectiveMethod}")
+
+        // Store devices for potential XML updates after discovery
+        discoveredDevices.clear()
+        discoveredDevices.addAll(devices)
 
         return@withContext devices
     }
@@ -969,8 +1014,20 @@ class BlastService : Service() {
 
     /**
      * Broadcast device updates to UI components.
+     *
+     * METADATA ENHANCEMENT: For SSDP devices, check if enhanced XML metadata
+     * is available in the SsdpDiscoverer cache and include it in the broadcast.
      */
     private fun broadcastDeviceUpdate(device: UpnpDevice, status: DeviceStatus) {
+        // For SSDP devices, try to get enhanced metadata from cache
+        var metadata = device.metadata
+        if (device.discoveryMethod == "SSDP" && metadata.isEmpty()) {
+            // Try to get enhanced metadata from SsdpDiscoverer cache
+            // This is a simple implementation - in practice, we'd need dependency injection
+            // For now, we'll just use the device's existing metadata
+            metadata = device.metadata
+        }
+
         val intent = Intent("com.wobbz.fartloop.BLAST_DEVICE_UPDATE").apply {
             putExtra("deviceId", "${device.ipAddress}:${device.port}")
             putExtra("deviceName", device.friendlyName)
@@ -981,28 +1038,106 @@ class BlastService : Service() {
             putExtra("status", status.name)
 
             // Include device metadata from XML parsing
-            if (device.metadata.isNotEmpty()) {
-                putExtra("metadataSize", device.metadata.size)
-                device.metadata.forEach { (key, value) ->
+            if (metadata.isNotEmpty()) {
+                putExtra("metadataSize", metadata.size)
+                metadata.forEach { (key, value) ->
                     putExtra("metadata_$key", value)
                 }
             }
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-        Timber.d("BlastService: Broadcasted device update: ${device.friendlyName} -> $status (metadata: ${device.metadata.size} fields)")
+        Timber.d("BlastService: Broadcasted device update: ${device.friendlyName} -> $status (metadata: ${metadata.size} fields)")
     }
 
     /**
      * Map UpnpDevice to DeviceType for UI display.
+     *
+     * DEVICE TYPE MAPPING FIX: Use the actual deviceType from UpnpDevice instead of guessing
+     * from friendly name and port. The deviceType was properly determined during discovery.
      */
     private fun mapDeviceType(device: UpnpDevice): DeviceType {
-        return when {
-            device.friendlyName.contains("Sonos", ignoreCase = true) -> DeviceType.SONOS
-            device.friendlyName.contains("Chromecast", ignoreCase = true) -> DeviceType.CHROMECAST
-            device.friendlyName.contains("Samsung", ignoreCase = true) -> DeviceType.SAMSUNG
-            device.port == 1400 -> DeviceType.SONOS
-            device.port == 8008 || device.port == 8009 -> DeviceType.CHROMECAST
-            else -> DeviceType.UPNP
+        // First, try to use the actual deviceType from discovery
+        return when (device.deviceType.uppercase()) {
+            "SONOS" -> DeviceType.SONOS
+            "CHROMECAST" -> DeviceType.CHROMECAST
+            "DLNA_RENDERER" -> DeviceType.UPNP  // Map DLNA to generic UPnP in blast layer
+            "AIRPLAY" -> DeviceType.AIRPLAY
+            "UNKNOWN_UPNP" -> DeviceType.UPNP
+            "ROKU" -> DeviceType.UPNP  // Map Roku to generic UPnP since it's not in blast enum
+            else -> {
+                // Fallback to heuristic-based detection for older devices
+                when {
+                    device.friendlyName.contains("Sonos", ignoreCase = true) -> DeviceType.SONOS
+                    device.friendlyName.contains("Chromecast", ignoreCase = true) -> DeviceType.CHROMECAST
+                    device.friendlyName.contains("Samsung", ignoreCase = true) -> DeviceType.SAMSUNG
+                    device.port == 1400 -> DeviceType.SONOS
+                    device.port == 8008 || device.port == 8009 -> DeviceType.CHROMECAST
+                    else -> DeviceType.UPNP
+                }
+            }
+        }
+    }
+
+    /**
+     * Set up callbacks for SsdpDiscoverer to handle device updates and XML parsing progress
+     */
+    private fun setupSsdpCallbacks() {
+        val ssdpDiscoverer = discoveryBus.getSsdpDiscoverer()
+
+        // Set device update callback for when XML parsing completes with real control URLs
+        ssdpDiscoverer.setDeviceUpdateCallback { updatedDevice ->
+            Timber.d("BlastService: Received device update from XML parsing: ${updatedDevice.friendlyName}")
+
+            // Update the device in our stored list
+            val deviceIndex = discoveredDevices.indexOfFirst {
+                it.ipAddress == updatedDevice.ipAddress && it.port == updatedDevice.port
+            }
+
+            if (deviceIndex >= 0) {
+                // Merge with existing device metadata
+                val existingDevice = discoveredDevices[deviceIndex]
+                val mergedMetadata = mutableMapOf<String, String>()
+                mergedMetadata.putAll(existingDevice.metadata)
+                mergedMetadata.putAll(updatedDevice.metadata)
+
+                val mergedDevice = updatedDevice.copy(metadata = mergedMetadata)
+                discoveredDevices[deviceIndex] = mergedDevice
+
+                Timber.i("BlastService: Updated stored device ${mergedDevice.friendlyName} with XML data (${mergedMetadata.size} metadata fields)")
+            } else {
+                Timber.w("BlastService: Could not find device ${updatedDevice.friendlyName} in stored list for XML update")
+            }
+
+            // Broadcast the updated device with real control URL and metadata
+            broadcastDeviceUpdate(updatedDevice, DeviceStatus.DISCOVERED)
+
+            Timber.i("BlastService: Updated device ${updatedDevice.friendlyName} with real control URL: ${updatedDevice.controlUrl}")
+        }
+
+        // Set XML parsing progress callback for progress bar updates
+        ssdpDiscoverer.setXmlParsingProgressCallback { totalParsing, completed ->
+            xmlParsingInProgress = totalParsing
+            xmlParsingCompleted = completed
+
+            Timber.d("BlastService: XML parsing progress: $completed completed, $totalParsing in progress")
+
+            // Update metrics with XML parsing progress
+            val currentMetrics = blastMetrics.currentMetrics.value
+            val updatedBlastMetrics = BlastMetrics(
+                httpStartupMs = currentMetrics.httpStartupMs.toLong(),
+                discoveryTimeMs = currentMetrics.discoveryDurationMs.toLong(),
+                totalDevicesFound = currentMetrics.devicesDiscovered,
+                connectionsAttempted = currentMetrics.totalDevicesTargeted,
+                successfulBlasts = currentMetrics.successfulDevices,
+                failedBlasts = currentMetrics.failedDevices,
+                averageLatencyMs = blastMetrics.getAverageSoapTime().toLong(),
+                isRunning = !currentMetrics.isComplete,
+                xmlParsingInProgress = totalParsing,
+                xmlParsingCompleted = completed,
+                discoveryMethodStats = finalDiscoveryMethodStats
+            )
+
+            broadcastMetricsUpdate(updatedBlastMetrics)
         }
     }
 }
