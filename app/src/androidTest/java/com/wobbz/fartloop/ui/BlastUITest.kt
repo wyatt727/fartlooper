@@ -51,6 +51,7 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
+                controlUrl = "/MediaRenderer/AVTransport/Control",
                 status = DeviceStatus.DISCOVERED,
             ),
             DiscoveredDevice(
@@ -59,6 +60,7 @@ class BlastUITest {
                 type = DeviceType.CHROMECAST,
                 ipAddress = "192.168.1.101",
                 port = 8008,
+                controlUrl = "/setup/eureka_info",
                 status = DeviceStatus.DISCOVERED,
             ),
         )
@@ -165,6 +167,7 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
+                controlUrl = "/MediaRenderer/AVTransport/Control",
                 status = DeviceStatus.BLASTING,
             ),
         )
@@ -229,6 +232,7 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
+                controlUrl = "/MediaRenderer/AVTransport/Control",
                 status = DeviceStatus.SUCCESS,
             ),
         )
@@ -279,6 +283,7 @@ class BlastUITest {
                 type = DeviceType.SAMSUNG,
                 ipAddress = "192.168.1.102",
                 port = 8001,
+                controlUrl = "/upnp/control/AVTransport1",
                 status = DeviceStatus.FAILED,
             ),
         )
@@ -341,6 +346,7 @@ class BlastUITest {
                 type = DeviceType.SONOS,
                 ipAddress = "192.168.1.100",
                 port = 1400,
+                controlUrl = "/MediaRenderer/AVTransport/Control",
                 status = DeviceStatus.SUCCESS,
             ),
             DiscoveredDevice(
@@ -349,6 +355,7 @@ class BlastUITest {
                 type = DeviceType.CHROMECAST,
                 ipAddress = "192.168.1.101",
                 port = 8008,
+                controlUrl = "/setup/eureka_info",
                 status = DeviceStatus.FAILED,
             ),
         )
@@ -368,6 +375,8 @@ class BlastUITest {
                         deviceClickCount++
                         println("Device clicked: ${device.name}")
                     },
+                    onBlastToDevice = { },
+                    onToggleDeviceDropdown = { },
                     onToggleMetrics = { },
                     debugLogs = emptyList(),
                 )

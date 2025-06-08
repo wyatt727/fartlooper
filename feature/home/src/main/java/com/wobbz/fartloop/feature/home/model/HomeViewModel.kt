@@ -110,11 +110,28 @@ class HomeViewModel @Inject constructor(
                         }
                         val ipAddress = intent.getStringExtra("ipAddress") ?: ""
                         val port = intent.getIntExtra("port", 0)
+                        val controlUrl = intent.getStringExtra("controlUrl") ?: "/AVTransport/control"
                         val status = try {
                             DeviceStatus.valueOf(intent.getStringExtra("status") ?: "DISCOVERED")
                         } catch (e: IllegalArgumentException) {
                             Timber.w("HomeViewModel: Unknown device status: ${intent.getStringExtra("status")}")
                             DeviceStatus.DISCOVERED
+                        }
+
+                        // Extract metadata from broadcast
+                        val metadataSize = intent.getIntExtra("metadataSize", 0)
+                        val metadata = mutableMapOf<String, String>()
+                        if (metadataSize > 0) {
+                            // Extract all metadata_* keys
+                            intent.extras?.keySet()?.forEach { key ->
+                                if (key.startsWith("metadata_")) {
+                                    val metadataKey = key.removePrefix("metadata_")
+                                    val metadataValue = intent.getStringExtra(key)
+                                    if (metadataValue != null) {
+                                        metadata[metadataKey] = metadataValue
+                                    }
+                                }
+                            }
                         }
 
                         val device = DiscoveredDevice(
@@ -123,7 +140,9 @@ class HomeViewModel @Inject constructor(
                             type = deviceType,
                             ipAddress = ipAddress,
                             port = port,
-                            status = status
+                            controlUrl = controlUrl,
+                            status = status,
+                            metadata = metadata
                         )
                         updateDevice(device)
                         Timber.d("HomeViewModel: Updated device: $device")
@@ -165,6 +184,11 @@ class HomeViewModel @Inject constructor(
                             kotlinx.coroutines.delay(5000)
                             clearError()
                         }
+                    }
+                    "com.wobbz.fartloop.SINGLE_DEVICE_BLAST_COMPLETE" -> {
+                        val deviceName = intent.getStringExtra("device_name") ?: "Unknown Device"
+                        updateBlastStage(BlastStage.COMPLETED)
+                        Timber.i("HomeViewModel: Single device blast to $deviceName completed")
                     }
                     else -> {
                         Timber.d("HomeViewModel: Unhandled broadcast action: $action")
@@ -310,6 +334,47 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
+     * Blast audio to a single device.
+     * Device must already be discovered and available in the device list.
+     */
+    fun blastToSingleDevice(device: DiscoveredDevice) {
+        viewModelScope.launch {
+            try {
+                Timber.d("HomeViewModel: Starting single device blast to ${device.name}")
+
+                // Update UI state to show blast starting
+                _uiState.value = _uiState.value.copy(
+                    blastStage = BlastStage.HTTP_STARTING
+                )
+
+                // Start single device blast
+                BlastService.blastToSingleDevice(
+                    context = context,
+                    deviceIp = device.ipAddress,
+                    devicePort = device.port,
+                    deviceName = device.name,
+                    deviceControlUrl = device.controlUrl // Use discovered control URL
+                )
+
+                Timber.i("HomeViewModel: Single device blast to ${device.name} started successfully")
+
+            } catch (e: Exception) {
+                Timber.e(e, "HomeViewModel: Error starting single device blast to ${device.name}")
+                _uiState.value = _uiState.value.copy(
+                    blastStage = BlastStage.IDLE,
+                    errorMessage = "Failed to blast to ${device.name}: ${e.message}"
+                )
+
+                // Auto-clear error after 5 seconds
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(5000)
+                    clearError()
+                }
+            }
+        }
+    }
+
+    /**
      * Update blast metrics from service broadcasts.
      *
      * METRICS INTEGRATION FINDING: ViewModel receives metrics updates
@@ -343,11 +408,30 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Handle device selection for navigation compatibility.
+     * Handle device selection to toggle dropdown expansion.
      */
     fun onDeviceSelected(device: DiscoveredDevice) {
         Timber.d("HomeViewModel: Device selected: ${device.name} (${device.id})")
-        // TODO: Handle device selection logic
+        // Toggle dropdown expansion instead of immediately blasting
+        toggleDeviceDropdown(device.id)
+    }
+
+    /**
+     * Toggle device dropdown expansion.
+     */
+    fun toggleDeviceDropdown(deviceId: String) {
+        val currentExpandedId = _uiState.value.expandedDeviceId
+        _uiState.value = _uiState.value.copy(
+            expandedDeviceId = if (currentExpandedId == deviceId) null else deviceId
+        )
+        Timber.d("HomeViewModel: Device dropdown toggled for $deviceId")
+    }
+
+    /**
+     * Close all device dropdowns.
+     */
+    fun closeDeviceDropdowns() {
+        _uiState.value = _uiState.value.copy(expandedDeviceId = null)
     }
 
     /**

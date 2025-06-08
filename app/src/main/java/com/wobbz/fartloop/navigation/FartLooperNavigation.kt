@@ -202,6 +202,8 @@ private fun HomeScreenRoute() {
         onStopClick = viewModel::stopBlast,
         onDiscoverClick = viewModel::discoverDevices,
         onDeviceClick = viewModel::onDeviceSelected,
+        onBlastToDevice = viewModel::blastToSingleDevice,
+        onToggleDeviceDropdown = viewModel::toggleDeviceDropdown,
         onToggleMetrics = viewModel::toggleMetricsExpansion,
     )
 }

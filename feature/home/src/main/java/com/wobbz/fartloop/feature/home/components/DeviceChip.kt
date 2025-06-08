@@ -182,6 +182,7 @@ private fun DeviceChipPreview() {
                     type = DeviceType.SONOS,
                     ipAddress = "192.168.1.100",
                     port = 1400,
+                    controlUrl = "/MediaRenderer/AVTransport/Control",
                     status = DeviceStatus.DISCOVERED
                 )
             )
@@ -193,6 +194,7 @@ private fun DeviceChipPreview() {
                     type = DeviceType.CHROMECAST,
                     ipAddress = "192.168.1.101",
                     port = 8008,
+                    controlUrl = "/setup/eureka_info",
                     status = DeviceStatus.CONNECTING
                 )
             )
@@ -204,6 +206,7 @@ private fun DeviceChipPreview() {
                     type = DeviceType.SAMSUNG,
                     ipAddress = "192.168.1.102",
                     port = 8001,
+                    controlUrl = "/upnp/control/AVTransport1",
                     status = DeviceStatus.SUCCESS
                 )
             )
@@ -215,6 +218,7 @@ private fun DeviceChipPreview() {
                     type = DeviceType.UNKNOWN,
                     ipAddress = "192.168.1.103",
                     port = 8080,
+                    controlUrl = "/upnp/control/AVTransport1",
                     status = DeviceStatus.FAILED
                 )
             )

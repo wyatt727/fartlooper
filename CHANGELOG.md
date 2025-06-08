@@ -1,8 +1,15 @@
 # CHANGELOG.md
 
-## [Unreleased] - Discovery-Only Feature Added 🔍
+## [Unreleased] - Device Info Dialog & Discovery-Only Feature Added 🔍📋
 
 ### Added
+- **Comprehensive Device Info Dialog**: Complete UPnP device information display
+  - Organized sections: Identity, Manufacturer Info, Technical Specs, Network & Services, Discovery Info
+  - Clickable URLs that open in browser (manufacturer URLs, model URLs, presentation URLs)
+  - Copy-to-clipboard functionality for all technical values
+  - Real-time XML parsing timestamp and error reporting
+  - Additional metadata section for debugging unknown fields
+  - Accessible via "Device Info" button in device dropdown menus
 - **Discovery-only mode**: Users can now discover devices without committing to blast audio
 - "Discover Devices" button in empty state for initial device discovery
 - Refresh icon in device list header for re-discovering devices

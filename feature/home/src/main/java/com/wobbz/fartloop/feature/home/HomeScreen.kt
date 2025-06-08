@@ -52,6 +52,8 @@ fun HomeScreen(
     onStopClick: () -> Unit = {},
     onDiscoverClick: () -> Unit = {},
     onDeviceClick: (DiscoveredDevice) -> Unit = {},
+    onBlastToDevice: (DiscoveredDevice) -> Unit = {},
+    onToggleDeviceDropdown: (String) -> Unit = {},
     onToggleMetrics: () -> Unit,
     debugLogs: List<LogEntry> = emptyList(),
     modifier: Modifier = Modifier
@@ -77,6 +79,8 @@ fun HomeScreen(
             HomeContent(
                 uiState = uiState,
                 onDeviceClick = onDeviceClick,
+                onBlastToDevice = onBlastToDevice,
+                onToggleDeviceDropdown = onToggleDeviceDropdown,
                 onDiscoverClick = onDiscoverClick,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -152,6 +156,8 @@ fun HomeScreen(
 private fun HomeContent(
     uiState: HomeUiState,
     onDeviceClick: (DiscoveredDevice) -> Unit,
+    onBlastToDevice: (DiscoveredDevice) -> Unit,
+    onToggleDeviceDropdown: (String) -> Unit,
     onDiscoverClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -179,7 +185,10 @@ private fun HomeContent(
         else -> {
             DeviceList(
                 devices = uiState.devices,
+                expandedDeviceId = uiState.expandedDeviceId,
                 onDeviceClick = onDeviceClick,
+                onBlastToDevice = onBlastToDevice,
+                onToggleDeviceDropdown = onToggleDeviceDropdown,
                 onDiscoverClick = onDiscoverClick,
                 modifier = modifier
             )
@@ -188,12 +197,15 @@ private fun HomeContent(
 }
 
 /**
- * Scrollable list of discovered devices
+ * Scrollable list of discovered devices with dropdown controls
  */
 @Composable
 private fun DeviceList(
     devices: List<DiscoveredDevice>,
+    expandedDeviceId: String?,
     onDeviceClick: (DiscoveredDevice) -> Unit,
+    onBlastToDevice: (DiscoveredDevice) -> Unit,
+    onToggleDeviceDropdown: (String) -> Unit,
     onDiscoverClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -231,14 +243,16 @@ private fun DeviceList(
             }
         }
 
-        // Device chips
+        // Device dropdown menus
         items(
             items = devices,
             key = { device -> device.id }
         ) { device ->
-            DeviceChip(
+            DeviceDropdownMenu(
                 device = device,
-                onClick = onDeviceClick,
+                isExpanded = device.id == expandedDeviceId,
+                onToggleExpanded = { onToggleDeviceDropdown(device.id) },
+                onBlastToDevice = onBlastToDevice,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -350,6 +364,7 @@ private fun HomeScreenWithDevicesPreview() {
                         type = DeviceType.SONOS,
                         ipAddress = "192.168.1.100",
                         port = 1400,
+                        controlUrl = "/MediaRenderer/AVTransport/Control",
                         status = DeviceStatus.SUCCESS
                     ),
                     DiscoveredDevice(
@@ -358,6 +373,7 @@ private fun HomeScreenWithDevicesPreview() {
                         type = DeviceType.CHROMECAST,
                         ipAddress = "192.168.1.101",
                         port = 8008,
+                        controlUrl = "/setup/eureka_info",
                         status = DeviceStatus.CONNECTING
                     ),
                     DiscoveredDevice(
@@ -366,6 +382,7 @@ private fun HomeScreenWithDevicesPreview() {
                         type = DeviceType.SAMSUNG,
                         ipAddress = "192.168.1.102",
                         port = 8001,
+                        controlUrl = "/upnp/control/AVTransport1",
                         status = DeviceStatus.FAILED
                     )
                 ),
@@ -385,6 +402,8 @@ private fun HomeScreenWithDevicesPreview() {
             onBlastClick = { },
             onStopClick = { },
             onDiscoverClick = { },
+            onBlastToDevice = { },
+            onToggleDeviceDropdown = { },
             onToggleMetrics = { },
             debugLogs = listOf(
                 LogEntry(
@@ -421,6 +440,8 @@ private fun HomeScreenEmptyPreview() {
             onBlastClick = { },
             onStopClick = { },
             onDiscoverClick = { },
+            onBlastToDevice = { },
+            onToggleDeviceDropdown = { },
             onToggleMetrics = { }
         )
     }
@@ -439,6 +460,7 @@ private fun HomeScreenBlastingPreview() {
                         type = DeviceType.SONOS,
                         ipAddress = "192.168.1.100",
                         port = 1400,
+                        controlUrl = "/MediaRenderer/AVTransport/Control",
                         status = DeviceStatus.BLASTING
                     )
                 ),
@@ -458,6 +480,8 @@ private fun HomeScreenBlastingPreview() {
             onBlastClick = { },
             onStopClick = { },
             onDiscoverClick = { },
+            onBlastToDevice = { },
+            onToggleDeviceDropdown = { },
             onToggleMetrics = { }
         )
     }

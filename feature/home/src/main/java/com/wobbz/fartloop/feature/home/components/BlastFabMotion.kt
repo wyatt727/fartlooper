@@ -398,6 +398,7 @@ private fun BlastFabMotionExpandedPreview() {
                         type = DeviceType.SONOS,
                         ipAddress = "192.168.1.100",
                         port = 1400,
+                        controlUrl = "/MediaRenderer/AVTransport/Control",
                         status = DeviceStatus.DISCOVERED
                     )
                 ),

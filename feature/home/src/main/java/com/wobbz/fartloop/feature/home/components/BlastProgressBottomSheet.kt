@@ -579,6 +579,7 @@ private fun BlastProgressBottomSheetPreview() {
                     type = DeviceType.SONOS,
                     ipAddress = "192.168.1.100",
                     port = 1400,
+                    controlUrl = "/MediaRenderer/AVTransport/Control",
                     status = DeviceStatus.DISCOVERED
                 ),
                 DiscoveredDevice(
@@ -587,6 +588,7 @@ private fun BlastProgressBottomSheetPreview() {
                     type = DeviceType.CHROMECAST,
                     ipAddress = "192.168.1.101",
                     port = 8008,
+                    controlUrl = "/setup/eureka_info",
                     status = DeviceStatus.CONNECTING
                 )
             ),

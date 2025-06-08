@@ -71,9 +71,14 @@ class BlastService : Service() {
         const val ACTION_AUTO_BLAST = "com.wobbz.fartloop.ACTION_AUTO_BLAST"
         const val ACTION_STOP_BLAST = "com.wobbz.fartloop.ACTION_STOP_BLAST"
         const val ACTION_DISCOVER_ONLY = "com.wobbz.fartloop.ACTION_DISCOVER_ONLY"
+        const val ACTION_BLAST_SINGLE_DEVICE = "com.wobbz.fartloop.ACTION_BLAST_SINGLE_DEVICE"
         const val EXTRA_DISCOVERY_TIMEOUT = "discovery_timeout"
         const val EXTRA_CONCURRENCY = "concurrency"
         const val EXTRA_TRIGGER_REASON = "trigger_reason"
+        const val EXTRA_DEVICE_IP = "device_ip"
+        const val EXTRA_DEVICE_PORT = "device_port"
+        const val EXTRA_DEVICE_NAME = "device_name"
+        const val EXTRA_DEVICE_CONTROL_URL = "device_control_url"
 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "blast_service"
@@ -159,6 +164,30 @@ class BlastService : Service() {
                 throw e
             }
         }
+
+        /**
+         * Blast audio to a specific device without discovery.
+         * Device must already be known (from previous discovery).
+         */
+        fun blastToSingleDevice(
+            context: Context,
+            deviceIp: String,
+            devicePort: Int,
+            deviceName: String,
+            deviceControlUrl: String = "/AVTransport/control" // Default UPnP control URL
+        ) {
+            Timber.i("🎯 BlastService.blastToSingleDevice() called - targeting: $deviceName ($deviceIp:$devicePort)")
+            val intent = Intent(context, BlastService::class.java).apply {
+                action = ACTION_BLAST_SINGLE_DEVICE
+                putExtra(EXTRA_DEVICE_IP, deviceIp)
+                putExtra(EXTRA_DEVICE_PORT, devicePort)
+                putExtra(EXTRA_DEVICE_NAME, deviceName)
+                putExtra(EXTRA_DEVICE_CONTROL_URL, deviceControlUrl)
+            }
+            Timber.d("BlastService.blastToSingleDevice() - Starting foreground service")
+            context.startForegroundService(intent)
+            Timber.i("BlastService.blastToSingleDevice() - Foreground service start requested")
+        }
     }
 
     override fun onCreate() {
@@ -220,6 +249,29 @@ class BlastService : Service() {
                     startDiscoveryOnlyOperation(discoveryTimeout)
                 } else {
                     Timber.w("Blast in progress, ignoring discovery-only request")
+                }
+            }
+            ACTION_BLAST_SINGLE_DEVICE -> {
+                Timber.i("BlastService: Starting single device blast operation")
+                if (!isBlastInProgress) {
+                    val deviceIp = intent.getStringExtra(EXTRA_DEVICE_IP) ?: ""
+                    val devicePort = intent.getIntExtra(EXTRA_DEVICE_PORT, 0)
+                    val deviceName = intent.getStringExtra(EXTRA_DEVICE_NAME) ?: "Unknown Device"
+                    val deviceControlUrl = intent.getStringExtra(EXTRA_DEVICE_CONTROL_URL) ?: "/AVTransport/control"
+
+                    Timber.d("BlastService: Single device blast parameters - IP: $deviceIp, Port: $devicePort, Name: $deviceName")
+
+                    if (deviceIp.isNotEmpty() && devicePort > 0) {
+                        startSingleDeviceBlastOperation(deviceIp, devicePort, deviceName, deviceControlUrl)
+                    } else {
+                        Timber.e("BlastService: Invalid device parameters for single device blast")
+                        val intent = Intent("com.wobbz.fartloop.BLAST_ERROR").apply {
+                            putExtra("error", "Invalid device parameters")
+                        }
+                        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+                    }
+                } else {
+                    Timber.w("Blast in progress, ignoring single device blast request")
                 }
             }
             null -> {
@@ -368,6 +420,104 @@ class BlastService : Service() {
         }
 
         Timber.d("BlastService: Discovery coroutine launched, method completing")
+    }
+
+    /**
+     * Start a single device blast operation without discovery.
+     * Uses HTTP server and blasts only to the specified device.
+     */
+    private fun startSingleDeviceBlastOperation(
+        deviceIp: String,
+        devicePort: Int,
+        deviceName: String,
+        deviceControlUrl: String
+    ) {
+        Timber.i("🎯 BlastService: startSingleDeviceBlastOperation() called - targeting: $deviceName ($deviceIp:$devicePort)")
+
+        isBlastInProgress = true
+        blastMetrics.resetForNewBlast()
+
+        startForeground(NOTIFICATION_ID, createNotification("Blasting to $deviceName...", BlastPhase.HTTP_STARTING))
+
+        serviceScope.launch {
+            try {
+                // Stage 1: Start HTTP Server
+                startHttpServer()
+
+                // Stage 2: Create single device target
+                val targetDevice = UpnpDevice(
+                    ipAddress = deviceIp,
+                    port = devicePort,
+                    friendlyName = deviceName,
+                    controlUrl = deviceControlUrl,
+                    deviceType = "",
+                    manufacturer = "",
+                    discoveryMethod = "Manual"
+                )
+
+                // Stage 3: Blast to Single Device
+                Timber.d("BlastService: Starting single device blast to $deviceName")
+                updateNotification("Sending to $deviceName...", BlastPhase.BLASTING)
+                broadcastStageUpdate(BlastStage.BLASTING)
+
+                val mediaUrl = httpServerManager.getMediaUrl()
+                if (mediaUrl == null) {
+                    throw Exception("No media URL available - check media source and HTTP server")
+                }
+
+                Timber.i("BlastService: Blasting media URL to single device: $mediaUrl")
+
+                // Broadcast device update to show connecting state
+                broadcastDeviceUpdate(targetDevice, DeviceStatus.CONNECTING)
+
+                // Blast to the single device
+                blastMetrics.startBlastTiming()
+                blastToSingleDevice(targetDevice, mediaUrl)
+
+                // Stage 4: Complete
+                completeSingleDeviceBlast(deviceName)
+
+            } catch (e: Exception) {
+                Timber.e(e, "Single device blast operation failed")
+                handleBlastError(e)
+            }
+        }
+    }
+
+    /**
+     * Complete a single device blast operation.
+     */
+    private suspend fun completeSingleDeviceBlast(deviceName: String) {
+        Timber.d("Completing single device blast to $deviceName")
+
+        updateNotification("Blast to $deviceName complete", BlastPhase.COMPLETE)
+        broadcastStageUpdate(BlastStage.COMPLETED)
+
+        blastMetrics.completeBlast()
+        broadcastMetricsUpdate()
+
+        // Broadcast completion
+        val intent = Intent("com.wobbz.fartloop.SINGLE_DEVICE_BLAST_COMPLETE").apply {
+            putExtra("device_name", deviceName)
+        }
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+
+        // Cleanup
+        isBlastInProgress = false
+
+        // Keep notification for a short time, then stop service
+        kotlinx.coroutines.delay(3000)
+
+        try {
+            httpServerManager.stopServer()
+        } catch (e: Exception) {
+            Timber.w(e, "Error stopping HTTP server after single device blast")
+        }
+
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+
+        Timber.i("Single device blast to $deviceName completed successfully")
     }
 
     /**
@@ -827,10 +977,19 @@ class BlastService : Service() {
             putExtra("deviceType", mapDeviceType(device).name)
             putExtra("ipAddress", device.ipAddress)
             putExtra("port", device.port)
+            putExtra("controlUrl", device.controlUrl)
             putExtra("status", status.name)
+
+            // Include device metadata from XML parsing
+            if (device.metadata.isNotEmpty()) {
+                putExtra("metadataSize", device.metadata.size)
+                device.metadata.forEach { (key, value) ->
+                    putExtra("metadata_$key", value)
+                }
+            }
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-        Timber.d("BlastService: Broadcasted device update: ${device.friendlyName} -> $status")
+        Timber.d("BlastService: Broadcasted device update: ${device.friendlyName} -> $status (metadata: ${device.metadata.size} fields)")
     }
 
     /**

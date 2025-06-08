@@ -10,8 +10,10 @@ data class DiscoveredDevice(
     val type: DeviceType,              // Type of device (UPnP, Chromecast, etc.)
     val ipAddress: String,             // Device IP address
     val port: Int,                     // Control port
+    val controlUrl: String,            // Device-specific control URL for SOAP commands
     val status: DeviceStatus,          // Current connection/blast status
-    val lastSeen: Long = System.currentTimeMillis()  // Last discovery timestamp
+    val lastSeen: Long = System.currentTimeMillis(), // Last discovery timestamp
+    val metadata: Map<String, String> = emptyMap()   // Additional device information from XML parsing
 )
 
 /**

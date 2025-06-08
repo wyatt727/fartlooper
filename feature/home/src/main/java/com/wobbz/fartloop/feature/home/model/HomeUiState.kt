@@ -11,6 +11,7 @@ data class HomeUiState(
     val metrics: BlastMetrics = BlastMetrics(),
     val blastStage: BlastStage = BlastStage.IDLE,
     val isMetricsExpanded: Boolean = false,  // MetricsOverlay expansion state
+    val expandedDeviceId: String? = null,    // ID of currently expanded device dropdown
     val errorMessage: String? = null,        // Error display
     val isLoading: Boolean = false           // General loading state
 ) {
